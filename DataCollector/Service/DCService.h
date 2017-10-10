@@ -1,0 +1,229 @@
+#pragma once
+
+/*
+	@ 创建时间：2017.7.10
+
+	@ 设计说明：
+
+	1：定抄任务处理线程，组织任务数据->发送任务数据->等待返回->判断超时->数据入库->更新指令状态->下一次批量处理
+
+	2：随抄任务发送线程，组织任务数据->发送任务数据->循环执行前面过程。
+
+	3：随抄任务接收线程，等待返回->判断超时->数据入库->更新指令状态->循环执行前面过程。
+
+	4：从CTaskManage类获取定抄和随抄任务。
+
+	5：从DeviceManage类判断设备是否在线。
+
+	6：ProtocalInterFace对象负责协议的编码和解码。
+
+	7：闲时发送心跳包保持SOCKET链接（所谓闲时，即没有任何网络数据时才发送心跳包进行链接保活）。
+
+	@ 修改记录：
+*/
+
+#ifdef WIN32
+#include "service_base.h"
+#endif
+
+#include "../DeviceManage.h"
+#include "../TaskManage.h"
+#include "../../include/DBInterFace.h"
+#include "../../include/ProtocalInterFace.h"
+#include "../config.h"
+#include <map>
+using namespace WSProtocalInterFace;
+typedef bool(*PCreateProtocalObject)(IProtocalObject** pProtocalObject);
+
+class DCService : public ServiceBase
+{
+public:
+
+#ifdef WIN32
+
+#ifdef _DEBUG
+	DCService(const CString& name) 
+		: ServiceBase(name,
+		name,
+		SERVICE_DEMAND_START,
+		SERVICE_ERROR_NORMAL,
+		SERVICE_ACCEPT_STOP
+		)
+	{
+
+	}
+#else
+	DCService(const CString& name) 
+		: ServiceBase(name,
+		name,
+		SERVICE_AUTO_START,
+		SERVICE_ERROR_NORMAL,
+		SERVICE_ACCEPT_STOP
+		)
+	{
+
+	}
+#endif
+	~DCService(void)
+	{
+		
+	}
+#endif
+	bool Run(LPCTSTR param = "");
+
+private:
+	void OnStart(DWORD argc, TCHAR* argv[]) override;
+	void OnStop() override;
+	DISABLE_COPY_AND_MOVE(DCService);
+
+	/* 从配置文件中获取配置信息 */
+	bool LoadFromconfig();
+
+	// 加载协议处理模块
+	void LoadProtocalFromDLL();
+
+	// 随抄任务网络数据收发线程函数	
+	static void commonTaskSendThreadFunc(void * pParam);
+	static void commonTaskRecvThreadFunc(void * pParam);
+
+	// 定抄任务网络数据收发线程函数(日、月冻结、曲线任务)
+	static void specialTaskSendThreadFunc(void * pParam);
+	static void specialTaskRecvThreadFunc(void * pParam);
+
+	// 检查定随抄任务的状态（是否超时，是否已经处理完等）
+	static void specialTaskStatusThreadFunc(void* pParam);
+	static void commonTaskStatusThreadFunc(void* pParam);
+
+	// 处理主动上报数据的线程函数
+	static void reportingThreadFunc(void* pParam);
+
+	// 处理线程函数(随抄)
+	void ProcessCommonTaskRecvThreadFunc();
+	void ProcessCommonTaskSendThreadFunc();
+	void ProcessCommonTaskStatusThreadFunc();
+
+	// 处理线程函数(定抄)
+	void ProcessSpecialTaskSendThreadFunc();
+	void ProcessSpecialTaskRecvThreadFunc();
+	void ProcessSpecialTaskStatusThreadFunc();
+
+	// 主动上报处理函数
+	void ProcessReportingThreadFunc();
+	// 根据收到的帧数据来判协议类型，只有主动上报会用上
+	unsigned char DetectProtocal(const char* pFrame, int nFrameLen, unsigned char& nMeterType);
+
+	// 处理计划任务
+	void ProcessScheduleTask(const string& strScheduleType);
+
+	// 连接前置服务器（定抄和随抄各起一个连接）
+	bool ConnectServer();
+
+	// 定抄任务用来判断新的一天和新的一月到来
+	bool IsNewMonth();
+	bool IsNewDay();
+	bool IsTimeRange();
+
+	// 处理补抄日、月策略任务（RT_TASK_MONTHS, RT_TASK_DAYS这两张表）
+	void InsertMonthAndDayTask(UInt32 nYear, UInt32 nMonth, 
+		UInt32 nDay, UInt32 nMonthBackword=0, UInt32 nDayBackword=0);
+
+	void InsertScheduleTaskData(const string& strTableName, const string& strColName, 
+		UInt32 nTableColCnt, map<UInt8, vector<string>> mapInsertData);
+
+private:
+	/* 数据库相关参数 */
+	string m_strDBIP				= "";
+	string m_strDBName				= "";
+	string m_strDBPassWord			= "";
+	string m_strDBSID				= "";
+	string m_strDBType				= "";
+	unsigned long m_nDBPort			= 0 ;
+	string m_strDBTag				= "";
+	
+	/* 与前置通讯的相关参数*/
+	string m_strServerIP			= "";
+	unsigned long m_nServerPort		= 0 ;
+	string m_strLocalIP				= "";
+
+	/* 功能模块包括设备管理等 */
+	CDeviceManage m_deviceManage;
+
+	/* 任务管理模块 */
+	CTaskManage m_taskManage;
+
+	// 随抄网络数据处理
+	CClientTCP	m_tcpCommClient;
+
+	// 定抄网络数据处理
+	CClientTCP	m_tcpSpeciaClient;
+
+	// 主动上报网络数据处理
+	CClientTCP	m_tcpReportingClient;
+
+	IDBObject* m_pDBObject			= nullptr;
+	common::Config*	m_pConf			= nullptr;
+
+	// 系统启动时间,主要用来判断新的一天
+	struct tm m_startTime;
+
+	// 补抄多少天的日任务
+	int m_nDaysBackword = 0;
+	// 补抄多少天的月任务
+	int m_nMonthBackword = 0;
+	// 任务超时时长
+	UInt32 m_nTaskTimeout = 30;
+
+	// 定抄任务的开始时间和结束时间
+	struct tm m_ScheduleTask_STime;
+	struct tm m_ScheduleTask_ETime;
+
+/***********************************************************************************
+	
+	线程相关
+*/
+	// 接收前置网络数据、解码、入库的线程
+	std::thread	m_commonTaskRecvThread;
+	
+	// 获取随抄任务、编码、发送的线程
+	std::thread	m_commonTaskSendThread;
+
+	// 随抄任务状态判断线程
+	std::thread	m_commonTaskStatusThread;
+
+	// 获取定抄任务（日月冻结、曲线等）、编码、发送的线程
+	std::thread	m_specialTaskSendThread;
+
+	// 接收前置网络数据、解码、入库的线程(定抄)
+	std::thread	m_specialTaskRecvThread;
+
+	// 定抄任务状态判断线程
+	std::thread	m_specialTaskStatusThread;
+
+	// 退出线程的标识
+	bool	m_bQuitCommonTaskRecvThread		= false;
+	bool	m_bQuitCommonTaskSendThread		= false;
+	bool	m_bQuitCommonTaskStatusThread	= false;
+
+	bool	m_bQuitSpecialTaskSendThread	= false;
+	bool	m_bQuitSpecialTaskRecvThread	= false;
+	bool	m_bQuitSpecialTaskStatusThread	= false;
+
+	bool	m_bQuitReportingThread			= false;	
+/***********************************************************************************/
+
+	// 协议对应的接口实例
+	map<int, IProtocalObject*> m_mapProtocalOBJ;
+	// 随抄数据
+	map<unsigned int, TASKPACKET>	m_mapCommTask;
+	// 定抄数据
+	map<unsigned int, TASKPACKET>	m_mapSpecialTask;
+	// 需要定抄的数据项（从数据库获取）AFN+FN, PRODUCENAME TABLENAME, TYPE, TABLEPROPERTY
+	map<string, tuple<string, string, string, string, string, map<UInt8, string>>> m_mapSpecialTaskDefine;
+
+#ifdef WIN32
+	SRWLOCK	 m_srwCommTask;
+	SRWLOCK	 m_srwSpeciaTask;
+#endif
+
+
+};

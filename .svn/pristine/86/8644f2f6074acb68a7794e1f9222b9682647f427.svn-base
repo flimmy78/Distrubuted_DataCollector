@@ -1,0 +1,91 @@
+#pragma once
+#define PROTOCAL_INTERFACE class
+
+#if defined(WIN32)
+#define __PROTOCAL_INTERFACE_API __declspec(dllexport)
+#else
+#define __PROTOCAL_INTERFACE_API
+#endif
+
+namespace WSProtocalInterFace
+{
+#if defined(WIN32) || defined(WIN64)
+	//
+	// Windows/Visual C++
+	//
+	typedef signed char            Int8;
+	typedef unsigned char          UInt8;
+	typedef signed short           Int16;
+	typedef unsigned short         UInt16;
+	typedef int					   Int32;
+	typedef unsigned int           UInt32;
+	typedef signed __int64         Int64;
+	typedef unsigned __int64       UInt64;
+#else
+	//
+	// Unix/GCC
+	//
+	typedef signed char            Int8;
+	typedef unsigned char          UInt8;
+	typedef signed short           Int16;
+	typedef unsigned short         UInt16;
+	typedef int					   Int32;
+	typedef unsigned int           UInt32;
+	typedef signed long            IntPtr;
+	typedef signed long long	   Int64;
+	typedef unsigned long long	   UInt64;
+#endif
+
+	PROTOCAL_INTERFACE IProtocalObject
+	{
+	public:
+
+		/* 数据库接口与主程序共用一个接口，不单独创建
+
+			如果只用到了EncodePacket函数，则不用初始化也可以正常使用
+		*/
+		
+		virtual void InitObject(void* pDBObject);
+
+		/*	根据协议类型封包
+
+			@ pData: 下发任务，包含后续内容->tagTASKPacket + void* pDocument + void* pTranscommand + void* pParameter
+
+			@ nDataLen: 任务数据的长度
+
+			@ pResult: 封包后的结果，前置机将此结果转发给终端或表计
+
+			@ nResultLen: 封包数据的长度
+
+			@ nIdx:	对于需要多次交互的指令,该值标识交互的序号
+
+			@ pDependentData: 依赖数据，如果多次交互需要中间数据的话
+
+			@ nDependentDataLen: 依赖数据长度
+
+			@ ret 返回值标识该条指令还需要几次交互，==0则不需要再交互了，一般情况下，协议都
+			是一收一发的处理方式。
+		*/
+		virtual Int32 EncodePacket(const void* pData, UInt32 nDataLen, void* pResult, 
+			UInt32& nResultLen, Int8 nIdx = 0, void* pDependentData = nullptr, UInt32 nDependentDataLen = 0) = 0;
+
+		/* 解码、存入数据库，这个函数需要初始化成功之后才能正常使用。
+			
+			@ pData ：tagTask除了设备返回的数据外，还要包含终端的SN码，表计的SN码，任务的SN码
+
+			@ nDataLen ：tagTask 的长度
+
+			@ ret：这个函数执行完成，表示数据已经存入数据库了。0表示成功，>0
+		*/
+		virtual Int32 DecodePacket(const void* pData, UInt32 nDataLen) = 0;
+	
+		/* 批量解码入库同类型的的数据,这里传入的数据是格式化数据，格式如下所示：	
+			         ---------------------------------
+			pData = | len | pData | len | pData | ... |
+					 ---------------------------------
+		*/
+		virtual Int32 BatchDecodePacket(const void* pData, UInt32 nDataLen) = 0;
+	};
+
+	__PROTOCAL_INTERFACE_API bool CreateProtocalObject(Int16 type, IProtocalObject** pProtocalObject);
+};

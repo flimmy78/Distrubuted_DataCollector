@@ -1,0 +1,45 @@
+[2014-11-24 18:02:57] < T >:68 32 00 32 00 68 c9 31 07 01 00 00 02 70 00 00 01 00 75 16
+
+从右到左数，第四个字节的含义是标识注册报文还是心跳报文还是注销报文，
+注册报文为01，心跳报文为04，注销报文为02；从左到右数，第8个字节开始的共四个字节为终端ID(31 07 01 00)。倒数第二个字节为检验码，检验的是从第7个字节到检验码字段为止，
+不包检验字段，所有字段的和相加作为检验码。其他字段固定不变
+
+[2014-11-24 18:02:58] < R >:68 32 00 32 00 68 0b 31 07 01 00 02 00 60 00 00 01 00 a7 16 
+[2014-11-24 18:03:58] < T >:68 32 00 32 00 68 c9 31 07 01 00 00 02 70 00 00 04 00 78 16 
+[2014-11-24 18:03:58] < R >:68 32 00 32 00 68 0b 31 07 01 00 02 00 60 00 00 01 00 a7 16
+                            68 32 00 32 00 68 C9 31 07 01 00 00 02 70 00 00 04 00 78 16 
+无论是注册报文还是心跳报文，上位机回复的都是一样的。
+
+
+6832003200680b31070b0002006000000100a716 登录
+683200320068c931070100000270000004007816 心跳
+
+终端ID的4个字节（假设为buff[4]）的编码格式为：
+例如，集中器的菜单界面显示的终端ID为0731 10001，则分为unsigned short 类型的两个数731 和10001，分别为x，y。
+buff[0] = DECtoBCD(x%100);
+buff[1] = DECtoBCD(x/100);
+buff[2] = y%256;
+buff[3] = y/256;
+其中：
+unsigned char DECtoBCD( unsigned char n )
+{
+	return ( (n / 10 )*16 + (n % 10) );
+}
+计算得到的buff的字段值为：31 07 11 27
+
+select * from gather_data_0100630100ff where meteraddr=22 and gatherdata like '%07df091D%';
+
+select * from gather_data_0100630100ff where meteraddr=24;
+
+select * from UPGRADE_ACCESS_STATU;
+select * UPGRADE_MISS_FRAME_NUM;
+00 01 00 01 00 01 00 1d 15 01 09 0C df 00 00 00 00 00 00 00 00 00 00 df 00 01 00 00 97 98 00 ff 02 00 00 00 00  
+insert into format(MITEM,SITEM,PRKEY,SHEET,FIELD,DTYPE,WHERES)values('40970','1','0','SCHEDULE_TASK_RESULT','MpNo','short','WHERE MeterAddr=? AND DayOfMonth=?');
+insert into format(MITEM,SITEM,PRKEY,SHEET,FIELD,DTYPE,WHERES)values('40970','2','1','SCHEDULE_TASK_RESULT','MeterAddr','bigint','WHERE MeterAddr=? AND DayOfMonth=?');
+insert into format(MITEM,SITEM,PRKEY,SHEET,FIELD,DTYPE,WHERES)values('40970','3','0','SCHEDULE_TASK_RESULT','DataTime','int','WHERE MeterAddr=? AND DayOfMonth=?');
+insert into format(MITEM,SITEM,PRKEY,SHEET,FIELD,DTYPE,WHERES)values('40970','4','1','SCHEDULE_TASK_RESULT','DayOfMonth','byte','WHERE MeterAddr=? AND DayOfMonth=?');
+insert into format(MITEM,SITEM,PRKEY,SHEET,FIELD,DTYPE,WHERES)values('40970','5','0','SCHEDULE_TASK_RESULT','TotalNum','int','WHERE MeterAddr=? AND DayOfMonth=?');
+insert into format(MITEM,SITEM,PRKEY,SHEET,FIELD,DTYPE,WHERES)values('40970','6','0','SCHEDULE_TASK_RESULT','FailNum','int','WHERE MeterAddr=? AND DayOfMonth=?');
+insert into format(MITEM,SITEM,PRKEY,SHEET,FIELD,DTYPE,WHERES)values('40970','7','0','SCHEDULE_TASK_RESULT','FailRate','float','WHERE MeterAddr=? AND DayOfMonth=?');
+
+create table[SCHEDULE_TASK_RESULT]([MpNo] short,[MeterAddr] bigint NOT NULL,[DataTime] int,[DayOfMonth] byte NOT NULL ,[TotalNum] int,[FailNum] int,[FailRate] float,PRIMARY KEY([MeterAddr],[DayOfMonth]));

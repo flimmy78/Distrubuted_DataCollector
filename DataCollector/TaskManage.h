@@ -1,0 +1,144 @@
+#pragma once
+
+/*
+	@ 创建时间：2017.7.10
+	
+	@ 设计说明：
+	
+		1：从数据库批量获取定抄任务。
+	
+		2：从数据库获取随抄任务。
+	
+		3：自动生成日、月冻结任务。
+	
+		4：自动生成曲线任务。
+	
+		5：更新任务的完成状态至数据库。
+
+	@ 数据库特别说明
+
+		获取任务上下文用到的存储过程：GetTaskContext，返回数据列及类型如下：
+
+		1：SN_TERMINAL_DEVICE				类型：string
+		2：SN_METER							类型：string	
+		3：SN_PROTOCAL_COMMAND				类型：string
+		4：Parameters						类型：string
+		5：Func_Type						类型：string
+		6：Group_Id							类型：string
+		7：terminal_device_address			类型：string
+		8：SN_PROTOCAL						类型：string
+		9：IS_USE_DOCUMENT					类型：string
+		10：AFN								类型：string
+		11：FN								类型：string
+		12：COMMAND_TYPE					类型：string
+		13：Is_Transparent_Command			类型：string
+		14：Transparent_Command				类型：string
+		15：SN_METER_TYPE					类型：string
+		16：is_user_command					类型：string
+		17：AFN_Name						类型：string
+		18：Fn_Name							类型：string
+		19：Is_Enable_Block					类型：string
+		20：Max_Block_Size					类型：int
+		21：Input_Param_Count				类型：string
+		22：CHECK_POINT_NUM					类型：string
+		23: SN_TASK							类型：string
+		
+		特别需要注意的是写存储过程的时候需要把队列一一对应。
+		日月冻结数据，实时数据，曲线数据都采用上述对应关系和数据类型。
+		日冻结数据对应的表: RT_TASK_ONLINE_DAY
+		月冻结数据对应的表: RT_TASK_ONLINE_MONTH
+		曲线数据对应的表：RT_TASK_ONLINE_CURVE
+		实时数据对应的表: RT_TASK_ONLINE
+
+		对应的SQL语句如下所示：
+		OPEN spCursor for SELECT A.sn_device, A.SN_METER, 
+		A.SN_PROTOCAL_COMMAND, A.Parameters, A.Func_Type,A.Group_Id, 
+		B.CST_ADDR terminal_device_address, C.SN_PROTOCAL, C.IS_USE_DOCUMENT, 
+		C.AFN, C.FN,C.COMMAND_TYPE,C.Is_Transparent_Command, C.Transparent_Command, 
+		C.SN_METER_TYPE, A.is_system_task is_user_command, C.AFN_Name, C.Fn_Name, 
+		C.Is_Enable_Block, C.Max_Block_Size, C.Input_Param_Count, D.CHECK_POINT_NUM, 
+		C.SN FROM RT_TASK_ONLINE A
+		INNER JOIN T_RUN_CST B ON A.sn_device = B.CST_ID
+		INNER JOIN CFG_PROTOCAL_COMMAND C ON A.sn_protocal_command = C.SN
+		LEFT JOIN CFG_METER_REGISTRY D ON A.sn_meter = D.sn_meter
+		WHERE 1 = 1;
+
+	@ 修改记录：
+
+*/
+#include "../include/dbinterface.h"
+#include "../include/common.h"
+#include <vector>
+using namespace std;
+using namespace WSDBInterFace;
+using namespace WSCOMMON;
+
+#define RT_TASK_ONLINE					"RT_TASK_ONLINE t"
+
+enum TASKTYPE
+{
+	COMMON_TASK			= 0,
+	COMMON_SCHEDULETASK = 1,
+};
+
+class CTaskManage
+{
+public:
+	CTaskManage();
+	~CTaskManage();
+
+public:
+	/* 初始化，传入数据库对象指针*/
+	bool Init(IDBObject* pDBObj, const string &strDBTag);
+
+	/* 通过对应的存储过程生成定抄任务*/
+	bool GenerateTask(const string& strScheduleName, const string& strSNCommand, const string& strType);
+
+	/* 获取随抄任务的数据信息 */
+	bool GetCommonTaskContext(vector<TASKPACKET>& vecTaskData);
+
+	/* 获取定抄任务的数据信息 */
+	bool GetScheduleTaskContext(vector<TASKPACKET>& vecTaskData);
+
+	/* 获取定抄任务的对应属性 */
+	bool GetScheduleTaskProperty(map<string, tuple<string, string, string, string, string, map<UInt8, string>>>& mapSpecialTaskDefine);
+
+	/* 更新任务表RT_TASK_ONLINE */
+	bool UpdateCommonTask(TASKPACKET TaskData);
+	bool UpdateScheduleTask(TASKPACKET TaskData);
+
+	/* 插入RT_TASK_MONTH RT_TASK_DAY*/
+	bool InertTaskMonth(const string& strKey, UInt32 year, UInt32 month, UInt32 monthBack = 0);
+	bool InertTaskDay(const string& strKey, UInt32 year, UInt32 month, UInt32 day, UInt32 dayBack = 0);
+
+	/* 定抄数据入库*/
+	bool BatchInsertScheduleData(const string& strTableName, const string& strColName, 
+		UInt32 nColCnt, map<UInt8, vector<string>>& mapColData);
+
+private:
+	IDBObject* m_pDBOBject = nullptr;
+	string m_strDBTag = "";
+	string m_strExcuteSqlConTag = "";
+
+//---------------------------------------------------------------------
+	/* 获取随抄任务的存储过程 */
+	string m_strGetCommonTaskData = "PKG_SYSTEM.GetTaskContext_test";
+	string m_strTagName_GetCommonTaskData = "";
+
+	/* 获取定抄任务的存储过程 */
+	string m_strGetScheduleTaskData = "PKG_SYSTEM.GetScheduleTaskContext_test";
+	string m_strTagName_GetScheduleTaskData = "";
+
+	/* 在RT_TASK_MONTH 或者 RT_TASK_DAY 输入参数 年 月 日 补抄*/
+	string m_strInsertTaskMonthorDay = "SP_INSERT_TASK_MONTHORDAY";
+	string m_strTagName_InsertTaskMonthorDay = "";
+
+//-------------------------------------------------------------------------
+	// 保存数据库字段,与“数据库特别说明”的序号一一对应
+	vector<string>	m_vecout1, m_vecout2, m_vecout3, m_vecout4, m_vecout5, m_vecout6, m_vecout7, m_vecout8,
+		m_vecout9, m_vecout10, m_vecout11, m_vecout12, m_vecout13, m_vecout14, m_vecout15, m_vecout16,
+		m_vecout17, m_vecout18, m_vecout19, m_vecout21, m_vecout22, m_vecout23;
+
+	// 保存数据库字段
+	vector<int>	m_vecout20;
+};

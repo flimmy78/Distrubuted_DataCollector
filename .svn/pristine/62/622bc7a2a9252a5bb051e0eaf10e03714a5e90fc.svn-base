@@ -1,0 +1,178 @@
+#pragma once
+
+/*
+	@ 创建时间：2017.7.10
+	
+	@ 设计说明：
+	
+		1：从数据库批量获取定抄任务。
+	
+		2：从数据库获取随抄任务。
+	
+		3：自动生成日、月冻结任务。
+	
+		4：自动生成曲线任务。
+	
+		5：更新任务的完成状态至数据库。
+
+	@ 数据库特别说明
+
+		获取任务上下文用到的存储过程：GetTaskContext，返回数据列及类型如下：
+
+		1：SN_TERMINAL_DEVICE				类型：string
+		2：SN_METER							类型：string	
+		3：SN_PROTOCAL_COMMAND				类型：string
+		4：Parameters						类型：string
+		5：Func_Type						类型：string
+		6：Group_Id							类型：string
+		7：terminal_device_address			类型：string
+		8：SN_PROTOCAL						类型：string
+		9：IS_USE_DOCUMENT					类型：string
+		10：AFN								类型：string
+		11：FN								类型：string
+		12：COMMAND_TYPE					类型：string
+		13：Is_Transparent_Command			类型：string
+		14：Transparent_Command				类型：string
+		15：SN_METER_TYPE					类型：string
+		16：is_user_command					类型：string
+		17：AFN_Name						类型：string
+		18：Fn_Name							类型：string
+		19：Is_Enable_Block					类型：string
+		20：Max_Block_Size					类型：int
+		21：Input_Param_Count				类型：string
+		22：CHECK_POINT_NUM					类型：string
+		23: SN_TASK							类型：string
+		
+		特别需要注意的是写存储过程的时候需要把队列一一对应。
+		日月冻结数据，实时数据，曲线数据都采用上述对应关系和数据类型。
+		日冻结数据对应的表: RT_TASK_ONLINE_DAY
+		月冻结数据对应的表: RT_TASK_ONLINE_MONTH
+		曲线数据对应的表：RT_TASK_ONLINE_CURVE
+		实时数据对应的表: RT_TASK_ONLINE
+
+		对应的SQL语句如下所示：
+		OPEN spCursor for SELECT A.sn_device, A.SN_METER, 
+		A.SN_PROTOCAL_COMMAND, A.Parameters, A.Func_Type,A.Group_Id, 
+		B.CST_ADDR terminal_device_address, C.SN_PROTOCAL, C.IS_USE_DOCUMENT, 
+		C.AFN, C.FN,C.COMMAND_TYPE,C.Is_Transparent_Command, C.Transparent_Command, 
+		C.SN_METER_TYPE, A.is_system_task is_user_command, C.AFN_Name, C.Fn_Name, 
+		C.Is_Enable_Block, C.Max_Block_Size, C.Input_Param_Count, D.CHECK_POINT_NUM, 
+		C.SN FROM RT_TASK_ONLINE A
+		INNER JOIN T_RUN_CST B ON A.sn_device = B.CST_ID
+		INNER JOIN CFG_PROTOCAL_COMMAND C ON A.sn_protocal_command = C.SN
+		LEFT JOIN CFG_METER_REGISTRY D ON A.sn_meter = D.sn_meter
+		WHERE 1 = 1;
+
+	@ 修改记录：
+
+*/
+#include "../include/dbinterface.h"
+#include "../include/common.h"
+#include <vector>
+using namespace std;
+using namespace WSDBInterFace;
+
+
+enum TASKTYPE
+{
+	CURVE_TASK			= 0,
+	DAY_FROZEN_TASK		= 1,
+	MONTH_FROZEN_TASK	= 2,
+	COMMON_TASK			= 3,
+};
+
+typedef struct tagTaskData
+{
+	bool bUsed = false;
+	WSCOMMON::TCPPACKET tcpPacket;
+	WSCOMMON::TASKPACKET taskPacket;
+
+}TASKDATA,*PTASKDATA;
+
+class CTaskManage
+{
+public:
+	CTaskManage();
+	~CTaskManage();
+
+public:
+	/* 初始化，传入数据库对象指针*/
+	bool Init(IDBObject* pDBObj, const string &strDBTag);
+
+	/* 
+		生成任务 taskType 取值如下
+		1: 日冻结任务 
+		2：月冻结任务
+		3: 随抄任务
+		0：曲线任务
+		4: 生成策略数据
+	*/
+	bool GenerateTask(TASKTYPE taskType);
+
+	/* 获取任务的信息 */
+	bool GetTaskContext(TASKTYPE taskType, vector<TASKDATA>& vecTaskData);
+
+	/* 更新任务至数据库 */
+	bool UpdateTask(TASKTYPE taskType, TASKDATA pTaskData);
+
+private:
+
+	/* 生成曲线任务 */
+	bool GenerateCurveTask();
+	/* 生成日冻结任务 */
+	bool GenerateDayFrozenTask();
+	/* 生成月冻结任务 */
+	bool GenerateMonthFrozenTask();
+
+	/* 获取曲线任务数据 */
+	bool GetCurveTask(vector<TASKDATA>& vecTaskData);
+	/* 获取日冻结任务数据 */
+	bool GetDayFrozenTask(vector<TASKDATA>& vecTaskData);
+	/* 获取月冻结任务数据 */
+	bool GetMonthFrozenTask(vector<TASKDATA>& vecTaskData);
+	/* 获取随抄任务数据 */
+	bool GetCommonTask(vector<TASKDATA>& vecTaskData);
+
+private:
+	IDBObject* m_pDBOBject = nullptr;
+	string m_strDBTag = "";
+
+//---------------------------------------------------------------------
+	/* 生成日冻结任务的存储过程 */
+	string m_strGenerateDayTask = "SP_GENERATE_TASK_DATA_DPDC";
+	string m_strTagName_GenerateDayTask = "";
+
+	/* 生成月冻结任务的存储过程 */
+	string m_strGenerateMonthTask = "SP_GENERATE_MONTHTASK_DATA";
+	string m_strTagName_GenerateMonthTask = "";
+
+	/* 生成曲线任务的存储过程 */
+	string m_strGenerateCurveTask = "SP_GENERATE_CURVETASK_DATA";
+	string m_strTagName_GenerateCurveTask = "";
+
+//---------------------------------------------------------------------
+	/* 获取随抄任务的存储过程 */
+	string m_strGetTaskData = "PKG_SYSTEM.GetTaskContext_test";
+	string m_strTagName_GetTaskData = "";
+
+	/* 获取日冻结任务数据的存储过程 */
+	string m_strGetDayTaskData = "PKG_SYSTEM.GetDayTaskContext_test";
+	string m_strTagName_GetDayTaskData = "";
+
+	/* 获取月冻结任务数据的存储过程 */
+	string m_strGetMonthTaskData = "PKG_SYSTEM.GetMonthTaskContext_test";
+	string m_strTagName_GetMonthTaskData = "";
+
+	/* 获取曲线任务数据的存储过程 */
+	string m_strGetCurveTaskData = "PKG_SYSTEM.GetCurveTaskContext_test";
+	string m_strTagName_GetCurveTaskData = "";
+
+//-------------------------------------------------------------------------
+	// 保存数据库字段,与“数据库特别说明”的序号一一对应
+	vector<string>	m_vecout1, m_vecout2, m_vecout3, m_vecout4, m_vecout5, m_vecout6, m_vecout7, m_vecout8,
+		m_vecout9, m_vecout10, m_vecout11, m_vecout12, m_vecout13, m_vecout14, m_vecout15, m_vecout16,
+		m_vecout17, m_vecout18, m_vecout19, m_vecout21, m_vecout22, m_vecout23;
+
+	// 保存数据库字段
+	vector<int>	m_vecout20;
+};

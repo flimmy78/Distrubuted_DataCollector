@@ -1,0 +1,456 @@
+#include "stdafx.h"
+#include "TaskManage.h"
+
+CTaskManage::CTaskManage()
+{
+}
+
+CTaskManage::~CTaskManage()
+{
+}
+
+bool CTaskManage::Init(IDBObject * pDBObj, const string & strDBTag)
+{
+	if (pDBObj != nullptr)
+	{
+		m_pDBOBject = pDBObj;
+		m_strDBTag = strDBTag;
+
+		m_pDBOBject->BeginExcuteSQL(strDBTag, m_strExcuteSqlConTag);
+
+		bool bRet = m_pDBOBject->BeginProcedure(strDBTag, m_strGetTaskData, 
+			m_strTagName_GetTaskData, 1, 23, true);
+
+		if (bRet)
+		{
+			// cursor游标
+			m_pDBOBject->AddParamOut(strDBTag, m_strTagName_GetTaskData);
+
+			// 一共返回24个字段N行的数据
+			m_pDBOBject->ReadProcedureResult(m_vecout1,  m_strDBTag, m_strTagName_GetTaskData);
+			m_pDBOBject->ReadProcedureResult(m_vecout2,  m_strDBTag, m_strTagName_GetTaskData);
+			m_pDBOBject->ReadProcedureResult(m_vecout3,  m_strDBTag, m_strTagName_GetTaskData);
+			m_pDBOBject->ReadProcedureResult(m_vecout4,  m_strDBTag, m_strTagName_GetTaskData);
+			m_pDBOBject->ReadProcedureResult(m_vecout5,  m_strDBTag, m_strTagName_GetTaskData);
+			m_pDBOBject->ReadProcedureResult(m_vecout6,  m_strDBTag, m_strTagName_GetTaskData);
+			m_pDBOBject->ReadProcedureResult(m_vecout7,  m_strDBTag, m_strTagName_GetTaskData);
+			m_pDBOBject->ReadProcedureResult(m_vecout8,  m_strDBTag, m_strTagName_GetTaskData);
+			m_pDBOBject->ReadProcedureResult(m_vecout9,  m_strDBTag, m_strTagName_GetTaskData);
+			m_pDBOBject->ReadProcedureResult(m_vecout10, m_strDBTag, m_strTagName_GetTaskData);
+			m_pDBOBject->ReadProcedureResult(m_vecout11, m_strDBTag, m_strTagName_GetTaskData);
+			m_pDBOBject->ReadProcedureResult(m_vecout12, m_strDBTag, m_strTagName_GetTaskData);
+			m_pDBOBject->ReadProcedureResult(m_vecout13, m_strDBTag, m_strTagName_GetTaskData);
+			m_pDBOBject->ReadProcedureResult(m_vecout14, m_strDBTag, m_strTagName_GetTaskData);
+			m_pDBOBject->ReadProcedureResult(m_vecout15, m_strDBTag, m_strTagName_GetTaskData);
+			m_pDBOBject->ReadProcedureResult(m_vecout16, m_strDBTag, m_strTagName_GetTaskData);
+			m_pDBOBject->ReadProcedureResult(m_vecout17, m_strDBTag, m_strTagName_GetTaskData);
+			m_pDBOBject->ReadProcedureResult(m_vecout18, m_strDBTag, m_strTagName_GetTaskData);
+			m_pDBOBject->ReadProcedureResult(m_vecout19, m_strDBTag, m_strTagName_GetTaskData);
+			m_pDBOBject->ReadProcedureResult(m_vecout20, m_strDBTag, m_strTagName_GetTaskData);
+			m_pDBOBject->ReadProcedureResult(m_vecout21, m_strDBTag, m_strTagName_GetTaskData);
+			m_pDBOBject->ReadProcedureResult(m_vecout22, m_strDBTag, m_strTagName_GetTaskData);
+			m_pDBOBject->ReadProcedureResult(m_vecout23, m_strDBTag, m_strTagName_GetTaskData);
+		}
+
+		return bRet;
+	}
+		
+	return false;
+}
+
+bool CTaskManage::GetCurveTask(vector<TASKDATA>& vecTaskData)
+{
+	vector<int>	vecout20;
+
+	vector<string>	vecout1, vecout2, vecout3, vecout4, vecout5, vecout6,
+					vecout7, vecout8, vecout9, vecout10, vecout11, vecout12,
+					vecout13, vecout14, vecout15, vecout16, vecout17, vecout18,
+					vecout19, vecout21, vecout22, vecout23;
+
+	bool bRet = m_pDBOBject->BeginProcedure(m_strDBTag, m_strGetCurveTaskData,
+						m_strTagName_GetCurveTaskData, 1, 23, true);
+
+	if (bRet)
+	{
+		m_pDBOBject->AddParamOut(m_strDBTag, m_strTagName_GetCurveTaskData);
+
+		// 一共返回23个字段N行的数据
+		m_pDBOBject->ReadProcedureResult(vecout1,  m_strDBTag, m_strTagName_GetCurveTaskData);
+		m_pDBOBject->ReadProcedureResult(vecout2,  m_strDBTag, m_strTagName_GetCurveTaskData);
+		m_pDBOBject->ReadProcedureResult(vecout3,  m_strDBTag, m_strTagName_GetCurveTaskData);
+		m_pDBOBject->ReadProcedureResult(vecout4,  m_strDBTag, m_strTagName_GetCurveTaskData);
+		m_pDBOBject->ReadProcedureResult(vecout5,  m_strDBTag, m_strTagName_GetCurveTaskData);
+		m_pDBOBject->ReadProcedureResult(vecout6,  m_strDBTag, m_strTagName_GetCurveTaskData);
+		m_pDBOBject->ReadProcedureResult(vecout7,  m_strDBTag, m_strTagName_GetCurveTaskData);
+		m_pDBOBject->ReadProcedureResult(vecout8,  m_strDBTag, m_strTagName_GetCurveTaskData);
+		m_pDBOBject->ReadProcedureResult(vecout9,  m_strDBTag, m_strTagName_GetCurveTaskData);
+		m_pDBOBject->ReadProcedureResult(vecout10, m_strDBTag, m_strTagName_GetCurveTaskData);
+		m_pDBOBject->ReadProcedureResult(vecout11, m_strDBTag, m_strTagName_GetCurveTaskData);
+		m_pDBOBject->ReadProcedureResult(vecout12, m_strDBTag, m_strTagName_GetCurveTaskData);
+		m_pDBOBject->ReadProcedureResult(vecout13, m_strDBTag, m_strTagName_GetCurveTaskData);
+		m_pDBOBject->ReadProcedureResult(vecout14, m_strDBTag, m_strTagName_GetCurveTaskData);
+		m_pDBOBject->ReadProcedureResult(vecout15, m_strDBTag, m_strTagName_GetCurveTaskData);
+		m_pDBOBject->ReadProcedureResult(vecout16, m_strDBTag, m_strTagName_GetCurveTaskData);
+		m_pDBOBject->ReadProcedureResult(vecout17, m_strDBTag, m_strTagName_GetCurveTaskData);
+		m_pDBOBject->ReadProcedureResult(vecout18, m_strDBTag, m_strTagName_GetCurveTaskData);
+		m_pDBOBject->ReadProcedureResult(vecout19, m_strDBTag, m_strTagName_GetCurveTaskData);
+		m_pDBOBject->ReadProcedureResult(vecout20, m_strDBTag, m_strTagName_GetCurveTaskData);
+		m_pDBOBject->ReadProcedureResult(vecout21, m_strDBTag, m_strTagName_GetCurveTaskData);
+		m_pDBOBject->ReadProcedureResult(vecout22, m_strDBTag, m_strTagName_GetCurveTaskData);
+		m_pDBOBject->ReadProcedureResult(vecout23, m_strDBTag, m_strTagName_GetCurveTaskData);
+	}
+
+	string strError = "";
+	if (m_pDBOBject->ExcuteProcedure(m_strDBTag, m_strTagName_GetCurveTaskData, strError))
+	{
+		for (unsigned int i = 0; i < vecout1.size(); i++)
+		{
+			TASKDATA taskData;
+
+			strcpy_s(taskData.taskPacket.szSNTask, vecout23[i].c_str());
+			strcpy_s(taskData.taskPacket.szSNMeter, vecout3[i].c_str());
+			strcpy_s(taskData.taskPacket.szSNTerminal, vecout1[i].c_str());
+			strcpy_s(taskData.taskPacket.szTransparent_command, vecout14[i].c_str());
+
+			strcpy_s(taskData.taskPacket.szAFN, vecout11[i].c_str());
+			strcpy_s(taskData.taskPacket.szFN, vecout12[i].c_str());
+			strcpy_s(taskData.taskPacket.szTerminalAddress, vecout8[i].c_str());
+
+			taskData.taskPacket.nMeasuring_point = atoi(vecout22[i].c_str());
+			taskData.taskPacket.cMeterType = atoi(vecout15[i].c_str());;
+			taskData.taskPacket.cProtocalType = atoi(vecout4[i].c_str());
+
+			vecTaskData.push_back(taskData);
+		}
+		return true;
+	}
+	else
+	{
+		return false;
+	}
+}
+
+bool CTaskManage::GetDayFrozenTask(vector<TASKDATA>& vecTaskData)
+{
+	vector<int>	vecout20;
+
+	vector<string>	vecout1, vecout2, vecout3, vecout4, vecout5, vecout6,
+		vecout7, vecout8, vecout9, vecout10, vecout11, vecout12,
+		vecout13, vecout14, vecout15, vecout16, vecout17, vecout18,
+		vecout19, vecout21, vecout22, vecout23;
+
+	bool bRet = m_pDBOBject->BeginProcedure(m_strDBTag, m_strGetDayTaskData,
+		m_strTagName_GetDayTaskData, 1, 23, true);
+
+	if (bRet)
+	{
+		m_pDBOBject->AddParamOut(m_strDBTag, m_strTagName_GetTaskData);
+
+		// 一共返回23个字段N行的数据
+		m_pDBOBject->ReadProcedureResult(vecout1,  m_strDBTag, m_strTagName_GetDayTaskData);
+		m_pDBOBject->ReadProcedureResult(vecout2,  m_strDBTag, m_strTagName_GetDayTaskData);
+		m_pDBOBject->ReadProcedureResult(vecout3,  m_strDBTag, m_strTagName_GetDayTaskData);
+		m_pDBOBject->ReadProcedureResult(vecout4,  m_strDBTag, m_strTagName_GetDayTaskData);
+		m_pDBOBject->ReadProcedureResult(vecout5,  m_strDBTag, m_strTagName_GetDayTaskData);
+		m_pDBOBject->ReadProcedureResult(vecout6,  m_strDBTag, m_strTagName_GetDayTaskData);
+		m_pDBOBject->ReadProcedureResult(vecout7,  m_strDBTag, m_strTagName_GetDayTaskData);
+		m_pDBOBject->ReadProcedureResult(vecout8,  m_strDBTag, m_strTagName_GetDayTaskData);
+		m_pDBOBject->ReadProcedureResult(vecout9,  m_strDBTag, m_strTagName_GetDayTaskData);
+		m_pDBOBject->ReadProcedureResult(vecout10, m_strDBTag, m_strTagName_GetDayTaskData);
+		m_pDBOBject->ReadProcedureResult(vecout11, m_strDBTag, m_strTagName_GetDayTaskData);
+		m_pDBOBject->ReadProcedureResult(vecout12, m_strDBTag, m_strTagName_GetDayTaskData);
+		m_pDBOBject->ReadProcedureResult(vecout13, m_strDBTag, m_strTagName_GetDayTaskData);
+		m_pDBOBject->ReadProcedureResult(vecout14, m_strDBTag, m_strTagName_GetDayTaskData);
+		m_pDBOBject->ReadProcedureResult(vecout15, m_strDBTag, m_strTagName_GetDayTaskData);
+		m_pDBOBject->ReadProcedureResult(vecout16, m_strDBTag, m_strTagName_GetDayTaskData);
+		m_pDBOBject->ReadProcedureResult(vecout17, m_strDBTag, m_strTagName_GetDayTaskData);
+		m_pDBOBject->ReadProcedureResult(vecout18, m_strDBTag, m_strTagName_GetDayTaskData);
+		m_pDBOBject->ReadProcedureResult(vecout19, m_strDBTag, m_strTagName_GetDayTaskData);
+		m_pDBOBject->ReadProcedureResult(vecout20, m_strDBTag, m_strTagName_GetDayTaskData);
+		m_pDBOBject->ReadProcedureResult(vecout21, m_strDBTag, m_strTagName_GetDayTaskData);
+		m_pDBOBject->ReadProcedureResult(vecout22, m_strDBTag, m_strTagName_GetDayTaskData);
+		m_pDBOBject->ReadProcedureResult(vecout23, m_strDBTag, m_strTagName_GetDayTaskData);
+	}
+
+	string strError = "";
+	if (m_pDBOBject->ExcuteProcedure(m_strDBTag, m_strTagName_GetDayTaskData, strError))
+	{
+		for (unsigned int i = 0; i < vecout1.size(); i++)
+		{
+			TASKDATA taskData;
+
+			strcpy_s(taskData.taskPacket.szSNTask, vecout23[i].c_str());
+			strcpy_s(taskData.taskPacket.szSNMeter, vecout3[i].c_str());
+			strcpy_s(taskData.taskPacket.szSNTerminal, vecout1[i].c_str());
+			strcpy_s(taskData.taskPacket.szTransparent_command, vecout14[i].c_str());
+
+			strcpy_s(taskData.taskPacket.szAFN, vecout11[i].c_str());
+			strcpy_s(taskData.taskPacket.szFN, vecout12[i].c_str());
+			strcpy_s(taskData.taskPacket.szTerminalAddress, vecout8[i].c_str());
+
+			taskData.taskPacket.nMeasuring_point = atoi(vecout22[i].c_str());
+			taskData.taskPacket.cMeterType = atoi(vecout15[i].c_str());;
+			taskData.taskPacket.cProtocalType = atoi(vecout4[i].c_str());
+
+			vecTaskData.push_back(taskData);
+		}
+		return true;
+	}
+	else
+	{
+		return false;
+	}
+}
+
+bool CTaskManage::GetMonthFrozenTask(vector<TASKDATA>& vecTaskData)
+{
+	vector<int>	vecout20;
+
+	vector<string>	vecout1, vecout2, vecout3, vecout4, vecout5, vecout6, 
+					vecout7, vecout8, vecout9, vecout10, vecout11, vecout12,
+					vecout13, vecout14, vecout15, vecout16, vecout17, vecout18, 
+					vecout19, vecout21, vecout22, vecout23;
+
+	bool bRet = m_pDBOBject->BeginProcedure(m_strDBTag, m_strGetMonthTaskData,
+		m_strTagName_GetMonthTaskData, 1, 23, true);
+
+	if (bRet)
+	{
+		m_pDBOBject->AddParamOut(m_strDBTag, m_strTagName_GetTaskData);
+
+		// 一共返回23个字段N行的数据
+		m_pDBOBject->ReadProcedureResult(vecout1,  m_strDBTag, m_strTagName_GetMonthTaskData);
+		m_pDBOBject->ReadProcedureResult(vecout2,  m_strDBTag, m_strTagName_GetMonthTaskData);
+		m_pDBOBject->ReadProcedureResult(vecout3,  m_strDBTag, m_strTagName_GetMonthTaskData);
+		m_pDBOBject->ReadProcedureResult(vecout4,  m_strDBTag, m_strTagName_GetMonthTaskData);
+		m_pDBOBject->ReadProcedureResult(vecout5,  m_strDBTag, m_strTagName_GetMonthTaskData);
+		m_pDBOBject->ReadProcedureResult(vecout6,  m_strDBTag, m_strTagName_GetMonthTaskData);
+		m_pDBOBject->ReadProcedureResult(vecout7,  m_strDBTag, m_strTagName_GetMonthTaskData);
+		m_pDBOBject->ReadProcedureResult(vecout8,  m_strDBTag, m_strTagName_GetMonthTaskData);
+		m_pDBOBject->ReadProcedureResult(vecout9,  m_strDBTag, m_strTagName_GetMonthTaskData);
+		m_pDBOBject->ReadProcedureResult(vecout10, m_strDBTag, m_strTagName_GetMonthTaskData);
+		m_pDBOBject->ReadProcedureResult(vecout11, m_strDBTag, m_strTagName_GetMonthTaskData);
+		m_pDBOBject->ReadProcedureResult(vecout12, m_strDBTag, m_strTagName_GetMonthTaskData);
+		m_pDBOBject->ReadProcedureResult(vecout13, m_strDBTag, m_strTagName_GetMonthTaskData);
+		m_pDBOBject->ReadProcedureResult(vecout14, m_strDBTag, m_strTagName_GetMonthTaskData);
+		m_pDBOBject->ReadProcedureResult(vecout15, m_strDBTag, m_strTagName_GetMonthTaskData);
+		m_pDBOBject->ReadProcedureResult(vecout16, m_strDBTag, m_strTagName_GetMonthTaskData);
+		m_pDBOBject->ReadProcedureResult(vecout17, m_strDBTag, m_strTagName_GetMonthTaskData);
+		m_pDBOBject->ReadProcedureResult(vecout18, m_strDBTag, m_strTagName_GetMonthTaskData);
+		m_pDBOBject->ReadProcedureResult(vecout19, m_strDBTag, m_strTagName_GetMonthTaskData);
+		m_pDBOBject->ReadProcedureResult(vecout20, m_strDBTag, m_strTagName_GetMonthTaskData);
+		m_pDBOBject->ReadProcedureResult(vecout21, m_strDBTag, m_strTagName_GetMonthTaskData);
+		m_pDBOBject->ReadProcedureResult(vecout22, m_strDBTag, m_strTagName_GetMonthTaskData);
+		m_pDBOBject->ReadProcedureResult(vecout23, m_strDBTag, m_strTagName_GetMonthTaskData);
+	}
+
+	string strError = "";
+	if (m_pDBOBject->ExcuteProcedure(m_strDBTag, m_strTagName_GetMonthTaskData, strError))
+	{
+		for (unsigned int i = 0; i < vecout1.size(); i++)
+		{
+			TASKDATA taskData;
+
+			strcpy_s(taskData.taskPacket.szSNTask, vecout23[i].c_str());
+			strcpy_s(taskData.taskPacket.szSNMeter, vecout3[i].c_str());
+			strcpy_s(taskData.taskPacket.szSNTerminal, vecout1[i].c_str());
+			strcpy_s(taskData.taskPacket.szTransparent_command, vecout14[i].c_str());
+
+			strcpy_s(taskData.taskPacket.szAFN, vecout11[i].c_str());
+			strcpy_s(taskData.taskPacket.szFN, vecout12[i].c_str());
+			strcpy_s(taskData.taskPacket.szTerminalAddress, vecout8[i].c_str());
+
+			taskData.taskPacket.nMeasuring_point = atoi(vecout22[i].c_str());
+			taskData.taskPacket.cMeterType = atoi(vecout15[i].c_str());;
+			taskData.taskPacket.cProtocalType = atoi(vecout4[i].c_str());
+
+			vecTaskData.push_back(taskData);
+		}
+		return true;
+	}
+	else
+	{
+		return false;
+	}
+}
+
+bool CTaskManage::GetCommonTask(vector<TASKDATA>& vecTaskData)
+{
+	m_vecout1.clear(); m_vecout2.clear(); m_vecout3.clear();
+	m_vecout4.clear(); m_vecout5.clear(); m_vecout6.clear();
+	m_vecout7.clear(); m_vecout8.clear(); m_vecout9.clear();
+	m_vecout10.clear(); m_vecout11.clear(); m_vecout12.clear();
+	m_vecout13.clear(); m_vecout14.clear(); m_vecout15.clear();
+	m_vecout16.clear(); m_vecout17.clear(); m_vecout18.clear();
+	m_vecout19.clear(); m_vecout20.clear(); m_vecout21.clear();
+	m_vecout22.clear(); m_vecout23.clear(); 
+	
+	string strError = "";
+	if (m_pDBOBject->ExcuteProcedure(m_strDBTag, m_strTagName_GetTaskData, strError))
+	{
+		for (unsigned int i = 0; i < m_vecout1.size(); i++)
+		{
+			TASKDATA taskData;
+
+			strcpy_s(taskData.taskPacket.szSNTask, m_vecout23[i].c_str());
+			strcpy_s(taskData.taskPacket.szSNMeter, m_vecout2[i].c_str());
+			strcpy_s(taskData.taskPacket.szSNTerminal, m_vecout1[i].c_str());
+			strcpy_s(taskData.taskPacket.szTransparent_command, m_vecout14[i].c_str());
+
+			strcpy_s(taskData.taskPacket.szAFN, m_vecout10[i].c_str());
+			strcpy_s(taskData.taskPacket.szFN, m_vecout11[i].c_str());
+			strcpy_s(taskData.taskPacket.szTerminalAddress, m_vecout7[i].c_str());
+
+			taskData.taskPacket.nMeasuring_point = atoi(m_vecout22[i].c_str());
+			taskData.taskPacket.cMeterType = atoi(m_vecout15[i].c_str());;
+			taskData.taskPacket.cProtocalType = atoi(m_vecout8[i].c_str());
+
+			vecTaskData.push_back(taskData);
+		}
+		return true;
+	}
+	else
+	{
+		return false;
+	}
+}
+
+bool CTaskManage::GenerateTask(TASKTYPE taskType)
+{
+	bool bRet = false;
+	switch (taskType)
+	{
+	case CURVE_TASK:
+		bRet = GenerateCurveTask();
+		break;
+	case DAY_FROZEN_TASK:
+		bRet = GenerateDayFrozenTask();
+		break;
+	case MONTH_FROZEN_TASK:
+		bRet = GenerateMonthFrozenTask();
+		break;
+	default:
+		break;
+	}
+
+	return bRet;
+}
+
+bool CTaskManage::GetTaskContext(TASKTYPE taskType, vector<TASKDATA>& vecTaskData)
+{
+	bool bRet = false;
+	switch (taskType)
+	{
+	case CURVE_TASK:
+		bRet = GetCurveTask(vecTaskData);
+		break;
+	case DAY_FROZEN_TASK:
+		bRet = GetDayFrozenTask(vecTaskData);
+		break;
+	case MONTH_FROZEN_TASK:
+		bRet = GetMonthFrozenTask(vecTaskData);
+		break;
+	case COMMON_TASK:
+		bRet = GetCommonTask(vecTaskData);
+	default:
+		break;
+	}
+
+	return bRet;
+}
+
+bool CTaskManage::UpdateTask(TASKTYPE taskType, TASKDATA TaskData)
+{
+	char szSQL[4098] = { 0 };
+	string strTableName = "";
+	switch (taskType)
+	{
+	case CURVE_TASK:
+		strTableName = RT_CURVE_TASK_ONLINE;
+		break;
+	case DAY_FROZEN_TASK:
+		strTableName = RT_CURVE_TASK_ONLINE;
+		break;
+	case MONTH_FROZEN_TASK:
+		strTableName = RT_CURVE_TASK_ONLINE;
+		break;
+	case COMMON_TASK:
+		strTableName = RT_TASK_ONLINE;
+		break;
+	}
+
+	if (strlen(TaskData.szCompleteTime) > 0)
+	{
+		sprintf_s(szSQL, "update %s set t.IS_EXECUTED=%d,t.IS_SUCCESS=%d,t.RETURN_DATA=%s,t.completion_date=to_date('%s',''yyyy/MM/dd HH24:mi:ss'') where sn= %s", 
+			strTableName.c_str(), TaskData.nTaskStatus,
+			TaskData.nTaskSuccess, TaskData.taskPacket.szReturnData, TaskData.szCompleteTime, 
+			TaskData.taskPacket.szSNTask);
+	}
+	else
+	{
+		sprintf_s(szSQL, "update %s set t.IS_EXECUTED=%d,t.IS_SUCCESS=%d,t.RETURN_DATA='%s' where t.sn= '%s'", 
+			strTableName.c_str(), TaskData.nTaskStatus, TaskData.nTaskSuccess, 
+			TaskData.taskPacket.szReturnData, TaskData.taskPacket.szSNTask);
+	}
+
+	string strError = "";
+	bool bRet = m_pDBOBject->ExcuteSQL(m_strDBTag, m_strExcuteSqlConTag, szSQL, strError);
+	return bRet;
+}
+
+bool CTaskManage::GenerateCurveTask()
+{
+	if (m_pDBOBject != nullptr)
+	{
+		bool bRet = m_pDBOBject->BeginProcedure(m_strDBTag, m_strGenerateCurveTask,
+			m_strTagName_GenerateCurveTask);
+
+		if (bRet)
+		{
+			string strErrOut = "";
+			bRet = m_pDBOBject->EndProcedure(m_strDBTag, m_strTagName_GenerateCurveTask, strErrOut);
+		}
+
+		return bRet;
+	}
+
+	return false;
+}
+
+bool CTaskManage::GenerateDayFrozenTask()
+{
+	if (m_pDBOBject != nullptr)
+	{
+		bool bRet = m_pDBOBject->BeginProcedure(m_strDBTag, m_strGenerateDayTask,
+			m_strTagName_GenerateDayTask);
+
+		if (bRet)
+		{
+			string strErrOut = "";
+			bRet = m_pDBOBject->EndProcedure(m_strDBTag, m_strTagName_GenerateDayTask, strErrOut);
+		}
+
+		return bRet;
+	}
+
+	return false;
+}
+
+bool CTaskManage::GenerateMonthFrozenTask()
+{
+	if (m_pDBOBject != nullptr)
+	{
+		bool bRet = m_pDBOBject->BeginProcedure(m_strDBTag, m_strGenerateMonthTask,
+			m_strTagName_GenerateMonthTask);
+
+		if (bRet)
+		{
+			string strErrOut;
+			bRet = m_pDBOBject->EndProcedure(m_strDBTag, m_strTagName_GenerateMonthTask, strErrOut);
+		}
+
+		return bRet;
+	}
+
+	return false;
+}

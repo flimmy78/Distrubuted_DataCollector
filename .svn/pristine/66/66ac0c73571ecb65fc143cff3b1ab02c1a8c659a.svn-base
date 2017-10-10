@@ -1,0 +1,204 @@
+
+#include "StdAfx.h"
+
+#ifdef WIN32
+#include "DCService.h"
+#include <DbgHelp.h>
+#include <IO.h>
+#include <string>
+using namespace std;
+
+
+//生产DUMP文件 
+LONG WINAPI ExceptionFilter(LPEXCEPTION_POINTERS lpExceptionInfo)
+{
+	typedef BOOL(WINAPI * MiniDumpWriteDumpT)(
+		HANDLE,
+		DWORD,
+		HANDLE,
+		MINIDUMP_TYPE,
+		PMINIDUMP_EXCEPTION_INFORMATION,
+		PMINIDUMP_USER_STREAM_INFORMATION,
+		PMINIDUMP_CALLBACK_INFORMATION
+		);
+
+	MiniDumpWriteDumpT pfnMiniDumpWriteDump = NULL;
+	HMODULE hDbgHelp = LoadLibrary("DbgHelp.dll");
+	if (hDbgHelp)
+	{
+		pfnMiniDumpWriteDump = (MiniDumpWriteDumpT)GetProcAddress(hDbgHelp, "MiniDumpWriteDump");
+	}
+
+	if (pfnMiniDumpWriteDump)
+	{
+		char szFileName[MAX_PATH] = { 0 };
+		::GetModuleFileName(NULL, szFileName, _MAX_PATH);
+		string str = szFileName;
+		str = str.substr(0, str.length() - 4) + ".dmp";
+
+		HANDLE hFile = ::CreateFile(str.c_str(), GENERIC_WRITE, 0, NULL, 
+			CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+		if (hFile != INVALID_HANDLE_VALUE)
+		{
+			MINIDUMP_EXCEPTION_INFORMATION einfo;
+			einfo.ThreadId = ::GetCurrentThreadId();
+			einfo.ExceptionPointers = lpExceptionInfo;
+			einfo.ClientPointers = FALSE;
+
+			pfnMiniDumpWriteDump(::GetCurrentProcess(), ::GetCurrentProcessId(), 
+				hFile, MiniDumpNormal, &einfo, NULL, NULL);
+			::CloseHandle(hFile);
+		}
+
+		return EXCEPTION_EXECUTE_HANDLER;
+	}
+
+	if (hDbgHelp != NULL)
+	{
+		FreeLibrary(hDbgHelp);
+	}
+
+	return EXCEPTION_EXECUTE_HANDLER;
+}
+#endif
+
+ void DCService::OnStart(DWORD argc, TCHAR* argv[])
+{
+#ifdef WIN32
+	 SetUnhandledExceptionFilter(ExceptionFilter);
+#endif
+
+	 // 程序入口点
+
+	 // 初始化日志接口
+
+	 // 初始化数据库模块
+	 if (LoadFromconfig() && CreateDBObject(ORCAL_TYPE, &m_pDBObject))
+	 {
+		 string strDBTag, strError;
+		 m_pDBObject->OpenDB(m_strDBSID, m_strDBName, m_strDBPassWord, 
+			 m_strDBIP, m_nDBPort, strDBTag, strError);
+
+		 // 初始化设备管理模块
+		 m_deviceManage.Init(m_pDBObject, strDBTag, m_strLocalIP,
+			 m_strServerIP, m_nServerPort);
+
+		 // 初始化任务管理模块
+
+		 // 创建任务收发线程 CWorkThread
+	 }
+}
+
+ void DCService::OnStop()
+{
+
+}
+
+ bool DCService::LoadFromconfig()
+ {
+	 if (m_pConf == nullptr)
+	 {
+		 m_pConf = new common::Config("config.ini");
+	 }
+
+	 if (m_pConf->valid())
+	 {
+		 m_strDBIP = m_pConf->getProperty("db_ip");
+		 m_strDBName = m_pConf->getProperty("db_username");
+		 m_strDBPassWord = m_pConf->getProperty("db_password");
+		 m_strDBSID = m_pConf->getProperty("db_sid");
+		 m_strDBType = m_pConf->getProperty("db_type");
+		 m_nDBPort = atoi(m_pConf->getProperty("db_port").c_str());
+
+		 m_strServerIP = m_pConf->getProperty("server_ip");
+		 m_strLocalIP = m_pConf->getProperty("local_ip");
+		 m_nServerPort = atoi(m_pConf->getProperty("server_port").c_str());
+
+		 return true;
+	 }
+	 else
+	 {
+		 return false;
+	 }
+ }
+
+ bool DCService::Run(LPCTSTR param)
+{
+	if (_tcscmp(param, _T("console")) == 0) 
+	{
+
+		TCHAR cinCmd[128];
+		bool bStart = false;
+
+		while(1) 
+		{
+			_tprintf(_T("->input \"exit\" quit\r\n"));
+
+			if (!bStart)
+			{
+				OnStart(0, NULL);
+
+				_tprintf(_T("\r\n========================================\r\n"));
+				_tprintf(_T("-> start data collector\r\n"));
+				_tprintf(_T("========================================\r\n"));
+			}
+			bStart = true;
+
+			_tscanf_s(_T("%s"), cinCmd, 128);
+			if (_tcsncmp(cinCmd, _T("?"), 1) == 0) 
+			{
+				_tprintf(_T("========================================\r\n"));
+				_tprintf(_T("\"?\"\t  -show cmd help\r\n"));
+				_tprintf(_T("\"start\"\t  -start data collector\r\n"));
+				_tprintf(_T("\"stop\"\t  -stop data collector\r\n"));
+				_tprintf(_T("\"exit\"\t  -exit data collector\r\n"));
+				_tprintf(_T("========================================\r\n"));
+			}
+			else if (_tcsncmp(cinCmd, _T("start"), 5) == 0) 
+			{
+				if (!bStart) 
+				{
+					OnStart(0, NULL);
+
+					_tprintf(_T("\r\n========================================\r\n"));
+					_tprintf(_T("-> start data collector\r\n"));
+					_tprintf(_T("========================================\r\n"));
+				}
+				bStart = true;
+			}
+			else if (_tcsncmp(cinCmd, _T("stop"), 4) == 0) 
+			{
+				if (bStart)
+				{
+					OnStop();
+
+					_tprintf(_T("\n========================================\n"));
+					_tprintf(_T("-> stop data collector\r\n"));
+					_tprintf(_T("========================================\n"));
+				}
+
+				bStart = false;
+			}
+			else if (_tcsncmp(cinCmd, _T("exit"), 4) == 0) 
+			{
+
+				_tprintf(_T("\r\n========================================\r\n"));
+				_tprintf(_T("-> exit data collector\r\n"));
+				_tprintf(_T("========================================\r\n"));
+
+				break;
+			}
+			else 
+			{
+				_tprintf(_T("invalid cmd\r\n"));
+			}
+		}
+
+		if (bStart)
+			OnStop();
+
+		return true;
+	}
+
+	return ServiceBase::Run();
+}

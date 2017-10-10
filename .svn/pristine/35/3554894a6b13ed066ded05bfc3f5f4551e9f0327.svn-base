@@ -1,0 +1,490 @@
+#include "stdafx.h"
+#include "TCP.h"
+
+WSNET::CTCP::CTCP()
+{
+#ifdef WIN32
+	InitializeCriticalSection(&m_csTCPSend);
+	InitializeCriticalSection(&m_csTCPRecv);
+#endif
+}
+
+WSNET::CTCP::~CTCP()
+{
+#ifdef WIN32
+	DeleteCriticalSection(&m_csTCPSend);
+	DeleteCriticalSection(&m_csTCPRecv);
+#endif
+}
+
+int WSNET::CTCP::InitializeWinsockIfNecessary()
+{
+#define WS_VERSION_CHOICE1 0x202/*MAKEWORD(2,2)*/
+#define WS_VERSION_CHOICE2 0x101/*MAKEWORD(1,1)*/
+
+	static int _haveInitializedWinsock = 0;
+	WSADATA	wsadata;
+
+	if (!_haveInitializedWinsock)
+	{
+		if ((WSAStartup(WS_VERSION_CHOICE1, &wsadata) != 0) &&
+			((WSAStartup(WS_VERSION_CHOICE2, &wsadata)) != 0))
+		{
+			return 0;
+		}
+
+		if ((wsadata.wVersion != WS_VERSION_CHOICE1) &&
+			(wsadata.wVersion != WS_VERSION_CHOICE2))
+		{
+			WSACleanup();
+			return 0;
+		}
+		_haveInitializedWinsock = 1;
+	}
+
+	return 1;
+}
+
+int WSNET::CTCP::SetupStreamSocket(const char * szIPAddress, unsigned int dwPort)
+{
+	if (!InitializeWinsockIfNecessary())
+	{
+		return -1;
+	}
+
+	int newSocket = socket(AF_INET, SOCK_STREAM, 0);
+	if (newSocket < 0)
+	{
+		return newSocket;
+	}
+
+	/*
+	int reuseFlag = 1;
+	if (setsockopt(newSocket, SOL_SOCKET, SO_REUSEADDR,
+	(const char*)&reuseFlag, sizeof reuseFlag) < 0)
+	{
+	//todo write log
+	closeSocket(newSocket, false);
+	return -1;
+	}
+	*/
+
+	MAKE_SOCKADDR_IN(name, (inet_addr(szIPAddress)), (htons(dwPort)));
+	if (bind(newSocket, (struct sockaddr*)&name, sizeof name) != 0)
+	{
+		closesocket(newSocket);
+		return -1;
+	}
+
+	m_sock = newSocket;
+	return newSocket;
+}
+
+int WSNET::CTCP::CloseSocket(bool graceful)
+{
+	if (graceful)
+	{
+		shutdown(m_sock, SD_BOTH);
+		while (1)
+		{
+			char szBuf[1024];
+			int nRet = recv(m_sock, szBuf, 1024, 0);
+			if (nRet < 0 || nRet == 0) break;
+			Sleep(1);
+		}
+	}
+
+	return closesocket(m_sock);
+}
+
+int WSNET::CTCP::ReadSocket(unsigned char * buffer, 
+	unsigned int bufferSize, timeval * timeout)
+{
+	int bytesRead = 0;
+
+	fd_set fdread;
+	FD_ZERO(&fdread);
+	FD_SET(m_sock, &fdread);
+
+	bytesRead = select(0, &fdread, NULL, NULL, timeout);
+
+	if (bytesRead == 0)//接收超时
+	{
+		return bytesRead;
+	}
+	else if (bytesRead == SOCKET_ERROR)
+	{
+		return bytesRead;
+	}
+	else if (bytesRead > 0)
+	{
+		if (FD_ISSET(m_sock, &fdread))
+		{
+			bytesRead = recv(m_sock, (char*)buffer, bufferSize, 0);
+		}
+	}
+
+	return bytesRead;
+}
+
+int WSNET::CTCP::ReadSocketExact(unsigned char * buffer, unsigned int bufferSize, timeval * timeout)
+{
+	int bsize = bufferSize;
+	int bytesRead = 0;
+	int totBytesRead = 0;
+	do
+	{
+		// 该函数只用在TCP模式下
+		bytesRead = ReadSocket(buffer + totBytesRead, bsize, timeout);
+
+		if (bytesRead == 0)
+		{
+			continue;
+		}
+		else if (bytesRead < 0)
+		{
+			return -1;
+		}
+
+		totBytesRead += bytesRead;
+		bsize -= bytesRead;
+
+	} while (bsize > 0 && ! m_bExit);
+
+	return totBytesRead;
+}
+
+int WSNET::CTCP::WriteSocketExact(unsigned char * buffer, unsigned int bufferSize, struct timeval* timeout)
+{
+	int bsize = bufferSize;
+	int bytesWrite = 0;
+	int totBytesWrite = 0;
+	do
+	{
+		bytesWrite = WriteSocket(buffer + totBytesWrite, bsize, timeout);
+		if (bytesWrite == 0)
+		{
+			continue;;
+		}
+		else if (bytesWrite < 0)
+		{
+			return -1;
+		}
+
+		totBytesWrite += bytesWrite;
+		bsize -= bytesWrite;
+
+	} while (bsize > 0 && !m_bExit);
+
+	return totBytesWrite;
+
+}
+
+int WSNET::CTCP::WriteSocket(unsigned char * buffer, unsigned int bufferSize, struct timeval* timeout)
+{
+	int nRet = -1;
+	int iWrite = -1;
+
+	fd_set fdwrite;
+	FD_ZERO(&fdwrite);
+	FD_SET(m_sock, &fdwrite);
+
+	iWrite = select(0, NULL, &fdwrite, NULL, timeout);
+	if (iWrite == 0)
+	{
+		nRet = iWrite;
+	}
+	else if (iWrite == SOCKET_ERROR)
+	{
+		nRet = iWrite;
+	}
+	else if (iWrite > 0)
+	{
+		if (FD_ISSET(m_sock, &fdwrite))
+		{
+			nRet = send(m_sock, (const char*)buffer, bufferSize, 0);
+		}
+	}
+
+	return nRet;
+}
+
+unsigned int WSNET::CTCP::GetSendBufferSize()
+{
+	return GetBufferSize(SO_SNDBUF);
+}
+
+unsigned int WSNET::CTCP::GetReceiveBufferSize()
+{
+	return GetBufferSize(SO_RCVBUF);
+}
+
+unsigned int WSNET::CTCP::SetSendBufferTo(unsigned int requestedSize)
+{
+	return SetBufferTo(SO_SNDBUF, requestedSize);
+}
+
+unsigned int WSNET::CTCP::SetReceiveBufferTo(unsigned int requestedSize)
+{
+	return SetBufferTo(SO_RCVBUF, requestedSize);
+}
+
+bool WSNET::CTCP::MakeSocketNonBlocking()
+{
+	unsigned long arg = 1;
+	return ioctlsocket(m_sock, FIONBIO, &arg) == 0;
+}
+
+bool WSNET::CTCP::MakeSocketBlocking()
+{
+	unsigned long arg = 0;
+	return ioctlsocket(m_sock, FIONBIO, &arg) == 0;
+}
+
+bool WSNET::CTCP::MakeSocketLingerON(int socket)
+{
+	struct linger linger;
+	linger.l_onoff = 0;
+	linger.l_linger = 0;
+	int nRet = setsockopt(m_sock, SOL_SOCKET, SO_LINGER,
+		(const char *)&linger, sizeof(linger));
+
+	return nRet < 0 ? false : true;
+}
+
+bool WSNET::CTCP::MakeSocketLingerOFF(int socket)
+{
+	struct linger linger;
+	linger.l_onoff = 1;
+	linger.l_linger = 0;
+	int nRet = setsockopt(m_sock, SOL_SOCKET, SO_LINGER,
+		(const char *)&linger, sizeof(linger));
+
+	return nRet < 0 ? false : true;
+}
+
+unsigned int WSNET::CTCP::GetBufferSize(int bufOptName)
+{
+	unsigned curSize;
+	int sizeSize = sizeof curSize;
+	if (getsockopt(m_sock, SOL_SOCKET, bufOptName,
+		(char*)&curSize, &sizeSize) < 0)
+	{
+		return 0;
+	}
+
+	return curSize;
+}
+
+unsigned int WSNET::CTCP::SetBufferTo(int bufOptName, unsigned int requestedSize)
+{
+	int sizeSize = sizeof requestedSize;
+	setsockopt(m_sock, SOL_SOCKET, bufOptName, (char*)&requestedSize, sizeSize);
+
+	// Get and return the actual, resulting buffer size:
+	return GetBufferSize(bufOptName);
+}
+
+int WSNET::CTCP::CheckTCPHeader(const unsigned char * pTCPPacket)
+{
+	// TCP 包头0xFE, 0xFE, 0xFE, 0xFE
+	PTCPPACKET pCheck = (PTCPPACKET)pTCPPacket;
+
+	if (pCheck->szHeader[0] == 0xFE && pCheck->szHeader[1] == 0xFE
+		&& pCheck->szHeader[2] == 0xFE && pCheck->szHeader[3] == 0xFE)
+	{
+		// 如果包头无误，则返回负载数据的实际长度
+		return pCheck->nLength;
+	}
+	return -1;
+}
+
+int WSNET::CTCP::SyncTCPHeader(unsigned char* pTCPPacket)
+{
+	// 同步包头逻辑
+	int nRet = 0;
+	bool bSync = true;
+	bool bResync = false;
+	int nSyncIdx = 0;
+	unsigned char szSyncBuf[128] = { 0 };
+	
+	do 
+	{
+		if (!bResync)
+		{
+			bResync = false;
+			nRet = ReadSocketExact((unsigned char*)szSyncBuf, 1);
+			if (nRet <= 0)
+			{
+				// 如果网络出错，则退出同步
+				bSync = false;
+			}
+		}
+
+		if (szSyncBuf[0] == 240) // 240 = 0xF0
+		{
+			// 如果发现包尾0xF0，则判断后四个字节是否是0XFF,0XFF,0XFF,0XFF
+			for (int i = 0; i < 4; i++)
+			{
+				nRet = ReadSocketExact((unsigned char*)szSyncBuf, 1);
+				if (nRet <= 0)
+				{
+					// 如果网络出错，则退出同步
+					bSync = false;
+					break;
+				}
+
+				if (szSyncBuf[0] == 240) // 240 = 0xF0
+				{
+					bResync = true;
+					break;
+				}
+				else if (szSyncBuf[0] == 254) // 254 = 0xFE
+				{
+					nSyncIdx++;
+				}
+				else
+				{
+					bResync = false;
+					break;
+				}
+			}
+
+			if (nSyncIdx == 4)
+			{
+				// 同步成功，退出循环
+				ReadSocketExact((unsigned char*)pTCPPacket+ nSyncIdx,
+					sizeof(TCPPACKET) - nSyncIdx);
+				bSync = false;
+			}
+			else
+			{
+				// 同步不成功，继续同步
+				nSyncIdx = 0;
+			}
+		}
+	} while (bSync);
+
+	return nSyncIdx;
+}
+
+int WSNET::CTCP::SendContent(unsigned char cCommand, const char* szSendBuf,
+	unsigned int nSendLen, unsigned int& nSendID)
+{
+#ifdef WIN32
+	EnterCriticalSection(&m_csTCPSend);
+#endif
+	int nRet = -1;
+	unsigned int nSendLenTemp = 0;
+	unsigned char szSendBufTemp[1500] = { 0 };
+
+	TCPPACKET tcpHeader;
+	tcpHeader.cCommand = cCommand;
+	tcpHeader.nLength = nSendLen;
+	tcpHeader.nSeq = m_nSeq++;
+
+	nSendLenTemp = sizeof(TCPPACKET);
+	memcpy(szSendBufTemp, &tcpHeader, sizeof(TCPPACKET));
+
+	//int nRet = WriteSocketExact((unsigned char*)&tcpHeader, sizeof(TCPPACKET));
+
+	if (szSendBuf != nullptr && nSendLen > 0 /*&& nRet > 0*/)
+	{
+		memcpy(szSendBufTemp+nSendLenTemp, szSendBuf, nSendLen);
+		nSendLenTemp += nSendLen;
+		//nRet = WriteSocketExact((unsigned char*)szSendBuf, nSendLen);
+		//nSendID = tcpHeader.nSeq;
+	}
+
+	unsigned char cEnd[1] = { 0xF0 };
+	memcpy(szSendBufTemp + nSendLenTemp, cEnd, 1);
+	nSendLenTemp += 1;
+	
+	nRet = WriteSocketExact(szSendBufTemp, nSendLenTemp);
+	nSendID = tcpHeader.nSeq;
+#ifdef WIN32
+	LeaveCriticalSection(&m_csTCPSend);
+#endif
+	return nRet;
+}
+
+int WSNET::CTCP::RecvContent(unsigned char& cCommand, char* szRecvBuf,
+	unsigned int& nRecvLen, unsigned int& nRecvID)
+{
+#ifdef WIN32
+	EnterCriticalSection(&m_csTCPRecv);
+#endif
+	bool bReadContent = true;
+	TCPPACKET tcpHeader;
+	int nRet = ReadSocketExact((unsigned char*)&tcpHeader, sizeof(tcpHeader));
+
+	if (nRet > 0 && CheckTCPHeader((const unsigned char*)&tcpHeader) < 0)
+	{
+		// 同步头接收有误，需要同步同步头
+		if (SyncTCPHeader((unsigned char*)&tcpHeader) < 0)
+		{
+			// 同步失败
+			bReadContent = false;
+		}
+	}
+
+	if (nRet > 0 && bReadContent)
+	{
+		// 同步成功之后，读实际的数据包, "+1"读包尾“0XF0”
+		nRet = ReadSocketExact((unsigned char*)szRecvBuf, tcpHeader.nLength+1);
+		cCommand = tcpHeader.cCommand;
+		nRecvLen = tcpHeader.nLength;
+		nRecvID = tcpHeader.nSeq;
+	}
+
+#ifdef WIN32
+	LeaveCriticalSection(&m_csTCPRecv);
+#endif
+	return nRet;
+}
+
+/*------------------------------------------------------------------------------------------------------------*/
+
+WSNET::CClientTCP::CClientTCP()
+{
+
+}
+
+WSNET::CClientTCP::~CClientTCP()
+{
+}
+
+int WSNET::CClientTCP::connectServer(const char * szServer, unsigned int nPort)
+{
+	FD_SET mask;
+	u_long value = -1;
+	TIMEVAL timeout;
+	struct sockaddr_in serveraddr;
+
+	serveraddr.sin_family = AF_INET;
+	serveraddr.sin_port = htons(nPort);
+	serveraddr.sin_addr.s_addr = inet_addr(szServer);
+
+	ioctlsocket(m_sock, FIONBIO, &value);//设置为非阻塞
+	connect(m_sock, (struct sockaddr *)&serveraddr, sizeof(serveraddr));
+
+	timeout.tv_sec = 2;
+	timeout.tv_usec = 0;
+	FD_ZERO(&mask);
+	FD_SET(m_sock, &mask);
+	value = select(NULL, NULL, &mask, NULL, &timeout);
+	if (value && value != SOCKET_ERROR)
+	{
+		//连接成功
+		value = 0;
+	}
+	else
+	{
+		value = -1;
+		CloseSocket(false);
+	}
+
+	return value;
+}
+
+

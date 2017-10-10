@@ -1,0 +1,8 @@
+#user name for oracle test user
+username MJL_YTH_NEW
+#password for oracle test user
+password MJL_YTH_NEW
+#oracle ip address
+ip 192.168.242.119
+#oracle sid name
+sid BGD

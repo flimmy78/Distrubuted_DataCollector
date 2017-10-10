@@ -1,0 +1,146 @@
+
+#include "StdAfx.h"
+
+#ifdef WIN32
+#include "DCService.h"
+#include <DbgHelp.h>
+#include <IO.h>
+#include <string>
+using namespace std;
+
+//生产DUMP文件 
+LONG WINAPI ExceptionFilter(LPEXCEPTION_POINTERS lpExceptionInfo)
+{
+	typedef BOOL(WINAPI * MiniDumpWriteDumpT)(
+		HANDLE,
+		DWORD,
+		HANDLE,
+		MINIDUMP_TYPE,
+		PMINIDUMP_EXCEPTION_INFORMATION,
+		PMINIDUMP_USER_STREAM_INFORMATION,
+		PMINIDUMP_CALLBACK_INFORMATION
+		);
+
+	MiniDumpWriteDumpT pfnMiniDumpWriteDump = NULL;
+	HMODULE hDbgHelp = LoadLibrary("DbgHelp.dll");
+	if (hDbgHelp)
+	{
+		pfnMiniDumpWriteDump = (MiniDumpWriteDumpT)GetProcAddress(hDbgHelp, "MiniDumpWriteDump");
+	}
+
+	if (pfnMiniDumpWriteDump)
+	{
+		char szFileName[MAX_PATH] = { 0 };
+		::GetModuleFileName(NULL, szFileName, _MAX_PATH);
+		string str = szFileName;
+		str = str.substr(0, str.length() - 4) + ".dmp";
+
+		HANDLE hFile = ::CreateFile(str.c_str(), GENERIC_WRITE, 0, NULL, 
+			CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+		if (hFile != INVALID_HANDLE_VALUE)
+		{
+			MINIDUMP_EXCEPTION_INFORMATION einfo;
+			einfo.ThreadId = ::GetCurrentThreadId();
+			einfo.ExceptionPointers = lpExceptionInfo;
+			einfo.ClientPointers = FALSE;
+
+			pfnMiniDumpWriteDump(::GetCurrentProcess(), ::GetCurrentProcessId(), 
+				hFile, MiniDumpNormal, &einfo, NULL, NULL);
+			::CloseHandle(hFile);
+		}
+
+		return EXCEPTION_EXECUTE_HANDLER;
+	}
+
+	if (hDbgHelp != NULL)
+	{
+		FreeLibrary(hDbgHelp);
+	}
+
+	return EXCEPTION_EXECUTE_HANDLER;
+}
+
+
+ void DCService::OnStart(DWORD argc, TCHAR* argv[])
+{
+	 SetUnhandledExceptionFilter(ExceptionFilter);
+
+}
+
+ void DCService::OnStop()
+{
+
+}
+
+ bool DCService::Run(LPCTSTR param)
+{
+	if (_tcscmp(param, _T("console")) == 0) 
+	{
+
+		TCHAR cinCmd[128];
+		bool bStart = false;
+
+		while(1) 
+		{
+			_tprintf(_T("->input cmd\r\n"));
+
+			_tscanf_s(_T("%s"), cinCmd, 128);
+			if (_tcsncmp(cinCmd, _T("?"), 1) == 0) 
+			{
+				_tprintf(_T("========================================\r\n"));
+				_tprintf(_T("\"?\"\t  -show cmd help\r\n"));
+				_tprintf(_T("\"start\"\t  -start data collector\r\n"));
+				_tprintf(_T("\"stop\"\t  -stop data collector\r\n"));
+				_tprintf(_T("\"exit\"\t  -exit data collector\r\n"));
+				_tprintf(_T("========================================\r\n"));
+			}
+			else if (_tcsncmp(cinCmd, _T("start"), 5) == 0) 
+			{
+				if (!bStart) 
+				{
+					OnStart(0, NULL);
+
+					_tprintf(_T("\r\n========================================\r\n"));
+					_tprintf(_T("-> start data collector\r\n"));
+					_tprintf(_T("========================================\r\n"));
+				}
+				bStart = true;
+			}
+			else if (_tcsncmp(cinCmd, _T("stop"), 4) == 0) 
+			{
+				if (bStart)
+				{
+					OnStop();
+
+					_tprintf(_T("\n========================================\n"));
+					_tprintf(_T("-> stop data collector\r\n"));
+					_tprintf(_T("========================================\n"));
+				}
+
+				bStart = false;
+			}
+			else if (_tcsncmp(cinCmd, _T("exit"), 4) == 0) 
+			{
+
+				_tprintf(_T("\r\n========================================\r\n"));
+				_tprintf(_T("-> exit data collector\r\n"));
+				_tprintf(_T("========================================\r\n"));
+
+				break;
+			}
+			else 
+			{
+				_tprintf(_T("invalid cmd\r\n"));
+			}
+		}
+
+		if (bStart)
+			OnStop();
+
+		return true;
+	}
+
+	return ServiceBase::Run();
+}
+
+#endif // WIN32

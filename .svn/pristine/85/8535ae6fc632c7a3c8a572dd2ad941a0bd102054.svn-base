@@ -1,0 +1,92 @@
+#pragma once
+
+#define  _WINSOCK_DEPRECATED_NO_WARNINGS
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#pragma comment(lib, "ws2_32.lib")
+
+#define MAKE_SOCKADDR_IN(var,adr,prt) \
+    struct sockaddr_in var;\
+    var.sin_family = AF_INET;\
+    var.sin_addr.s_addr = (adr);\
+    var.sin_port = (prt);\
+
+
+#include "../include/common.h"
+using namespace WSCOMMON;
+namespace WSNET
+{
+	class CTCP
+	{
+		public:
+
+			CTCP();
+			virtual ~CTCP();
+
+			// 如果需要则初始化
+			int InitializeWinsockIfNecessary();
+
+			// 创建TCP socket，绑定IP地址和端口（端口可以为0，表示由系统随机分配）
+			int SetupStreamSocket(const char* szIPAddress, unsigned int dwPort = 0);
+
+			// 关闭socket（由暴力关闭和优雅关闭两种方式）
+			int CloseSocket(bool graceful);
+
+			// 接收TCP数据（readSocketExact接收指定长度的数据后才返回）
+			int ReadSocket(unsigned char* buffer, unsigned int bufferSize,
+				struct timeval* timeout = NULL);
+			int ReadSocketExact(unsigned char* buffer, unsigned int bufferSize,
+				struct timeval* timeout = NULL);
+
+			// 发送TCP数据（WriteSocketExact发送指定长度的数据后才返回）
+			int WriteSocketExact(unsigned char* buffer, unsigned int bufferSize, 
+				struct timeval* timeout = NULL);
+			int WriteSocket(unsigned char* buffer, unsigned int bufferSize,
+				struct timeval* timeout = NULL);
+
+			// 获取发送和接收缓冲区的大小
+			unsigned int GetSendBufferSize();
+			unsigned int GetReceiveBufferSize();
+
+			// 设置发送和接收缓冲区的大小
+			unsigned int SetSendBufferTo(unsigned int requestedSize);
+			unsigned int SetReceiveBufferTo(unsigned int requestedSize);
+
+			// 设置SOCKET为阻塞或者非阻塞模式
+			bool MakeSocketNonBlocking();
+			bool MakeSocketBlocking();
+
+			// 下列函数OFF时，关闭SOCKET不会产生WAIT_TIME，属于暴力关闭 
+			bool MakeSocketLingerON(int socket);
+			bool MakeSocketLingerOFF(int socket);
+
+			/*TCP封包格式
+			-------------------------------------------------------------------------------
+			| 4B(HEADER) | 1B(COMMAND) | 4B(SEQ) | 2B(LENGTH) | nB(DATA) | 1 (END) |
+			-------------------------------------------------------------------------------*/
+			// 校验TCP数据包是否符合封包格式，返回数据包长
+			int CheckTCPHeader(const char* pTCPPacket);
+
+			// 同步TCP数据包包头，返回数据包包长
+			int SyncTCPHeader(const char* pTCPPacket, unsigned long nPacketLen, unsigned long& nSyncIdx);
+
+		protected:
+			unsigned int GetBufferSize(int bufOptName);
+			unsigned int SetBufferTo(int bufOptName, unsigned int requestedSize);
+
+		protected:
+			SOCKET m_sock = INVALID_SOCKET;
+			bool m_bExit = false;
+	};
+
+	class CClientTCP : public CTCP
+	{
+	public:
+
+		CClientTCP();
+		virtual ~CClientTCP();
+
+		// 连接服务器，0为成功，-1失败
+		int connectSocket(const char* szServer, unsigned int nPort);
+	};
+}

@@ -1,0 +1,297 @@
+
+Creating table LOG_F_TEST4
+==========================
+
+
+create table OCCIWRAPPER.LOG_F_TEST4
+(
+  P_IN_VALUE1 INTEGER,
+  P_IN_VALUE2 VARCHAR2(256),
+  P_IN_VALUE3 DATE,
+  P_IN_VALUE4 FLOAT,
+  P_IN_VALUE5 NUMBER(22,8)
+)
+tablespace USERS
+  pctfree 10
+  initrans 1
+  maxtrans 255
+  storage
+  (
+    initial 64K
+    next 1M
+    minextents 1
+    maxextents unlimited
+  )
+
+ORA-00955: 名称已由现有对象使用
+
+Creating table TBL_TEST1
+========================
+
+
+create table OCCIWRAPPER.TBL_TEST1
+(
+  X INTEGER
+)
+tablespace USERS
+  pctfree 10
+  initrans 1
+  maxtrans 255
+  storage
+  (
+    initial 64K
+    next 1M
+    minextents 1
+    maxextents unlimited
+  )
+
+ORA-00955: 名称已由现有对象使用
+
+Creating table TBL_TEST2
+========================
+
+
+create table OCCIWRAPPER.TBL_TEST2
+(
+  X INTEGER,
+  Y INTEGER
+)
+tablespace USERS
+  pctfree 10
+  initrans 1
+  maxtrans 255
+  storage
+  (
+    initial 64K
+    next 1M
+    minextents 1
+    maxextents unlimited
+  )
+
+ORA-00955: 名称已由现有对象使用
+
+Creating table TEST_BATCHED_TABLE
+=================================
+
+
+create table OCCIWRAPPER.TEST_BATCHED_TABLE
+(
+  FLOAT_VALUE  FLOAT,
+  STRING_VALUE VARCHAR2(1024),
+  DATE_VALUE   DATE,
+  INT_VALUE    INTEGER,
+  NUMBER_VALUE NUMBER
+)
+tablespace USERS
+  pctfree 10
+  initrans 1
+  maxtrans 255
+  storage
+  (
+    initial 64K
+    next 1M
+    minextents 1
+    maxextents unlimited
+  )
+
+ORA-00955: 名称已由现有对象使用
+
+Creating table TEST_BLOB
+========================
+
+
+create table OCCIWRAPPER.TEST_BLOB
+(
+  OBJS BLOB
+)
+tablespace USERS
+  pctfree 10
+  initrans 1
+  maxtrans 255
+  storage
+  (
+    initial 64K
+    next 1M
+    minextents 1
+    maxextents unlimited
+  )
+
+ORA-00955: 名称已由现有对象使用
+
+Creating table TEST_BLOB_WITH_ID
+================================
+
+
+create table OCCIWRAPPER.TEST_BLOB_WITH_ID
+(
+  ID   INTEGER,
+  OBJS BLOB
+)
+tablespace USERS
+  pctfree 10
+  initrans 1
+  maxtrans 255
+  storage
+  (
+    initial 64K
+    next 1M
+    minextents 1
+    maxextents unlimited
+  )
+
+ORA-00955: 名称已由现有对象使用
+
+Creating table TEST_CLOB
+========================
+
+
+create table OCCIWRAPPER.TEST_CLOB
+(
+  OBJS CLOB
+)
+tablespace USERS
+  pctfree 10
+  initrans 1
+  maxtrans 255
+  storage
+  (
+    initial 64K
+    next 1M
+    minextents 1
+    maxextents unlimited
+  )
+
+ORA-00955: 名称已由现有对象使用
+
+Creating table TEST_CLOB_WITH_ID
+================================
+
+
+create table OCCIWRAPPER.TEST_CLOB_WITH_ID
+(
+  ID   INTEGER,
+  OBJS CLOB
+)
+tablespace USERS
+  pctfree 10
+  initrans 1
+  maxtrans 255
+  storage
+  (
+    initial 64K
+    next 1M
+    minextents 1
+    maxextents unlimited
+  )
+
+ORA-00955: 名称已由现有对象使用
+
+Creating table TEST_DATE
+========================
+
+
+create table OCCIWRAPPER.TEST_DATE
+(
+  DATE_VAL DATE not null
+)
+tablespace USERS
+  pctfree 10
+  initrans 1
+  maxtrans 255
+  storage
+  (
+    initial 64K
+    next 1M
+    minextents 1
+    maxextents unlimited
+  )
+
+ORA-00955: 名称已由现有对象使用
+
+Creating table TEST_NUMBER
+==========================
+
+
+create table OCCIWRAPPER.TEST_NUMBER
+(
+  ID           INTEGER not null,
+  NUMBER_VALUE NUMBER
+)
+tablespace USERS
+  pctfree 10
+  initrans 1
+  maxtrans 255
+  storage
+  (
+    initial 64K
+    next 1M
+    minextents 1
+    maxextents unlimited
+  )
+
+ORA-00955: 名称已由现有对象使用
+
+Creating table TEST_STRING
+==========================
+
+
+create table OCCIWRAPPER.TEST_STRING
+(
+  ID         INTEGER not null,
+  STRING_VAL VARCHAR2(100)
+)
+tablespace USERS
+  pctfree 10
+  initrans 1
+  maxtrans 255
+  storage
+  (
+    initial 64K
+    next 1M
+    minextents 1
+    maxextents unlimited
+  )
+
+ORA-00955: 名称已由现有对象使用
+
+Creating function F_INS_TBL_TEST1
+=================================
+
+
+Function created
+
+Creating function F_TEST2
+=========================
+
+
+Function created
+
+Creating function F_TEST3
+=========================
+
+
+Function created
+
+Creating function F_TEST4
+=========================
+
+
+Function created
+
+Creating procedure P_TEST_BLOB_PROCEDURE
+========================================
+
+
+Procedure created
+
+Creating procedure P_TEST_CLOB_PROCEDURE
+========================================
+
+
+Procedure created
+
+Creating procedure P_TEST_PROCEDURE
+===================================
+
+
+Procedure created

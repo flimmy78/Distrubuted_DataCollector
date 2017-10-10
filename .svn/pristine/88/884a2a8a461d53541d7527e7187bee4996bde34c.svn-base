@@ -1,0 +1,93 @@
+#pragma once
+
+/*
+	@ 创建时间：2017.7.10
+
+	@ 设计说明：
+
+	1：定抄任务处理线程，组织任务数据->发送任务数据->等待返回->判断超时->数据入库->更新指令状态->下一次批量处理
+
+	2：随抄任务发送线程，组织任务数据->发送任务数据->循环执行前面过程。
+
+	3：随抄任务接收线程，等待返回->判断超时->数据入库->更新指令状态->循环执行前面过程。
+
+	4：从CTaskManage类获取定抄和随抄任务。
+
+	5：从DeviceManage类判断设备是否在线。
+
+	6：ProtocalInterFace对象负责协议的编码和解码。
+
+	7：闲时发送心跳包保持SOCKET链接（所谓闲时，即没有任何网络数据时才发送心跳包进行链接保活）。
+
+	@ 修改记录：
+
+
+*/
+
+#ifdef WIN32
+#include "service_base.h"
+#endif
+
+#include "../DeviceManage.h"
+#include "../../include/DBInterFace.h"
+#include "../config.h"
+
+class DCService : public ServiceBase
+{
+public:
+
+#ifdef WIN32
+
+#ifdef _DEBUG
+	DCService(const CString& name) 
+		: ServiceBase(name,
+		name,
+		SERVICE_DEMAND_START,
+		SERVICE_ERROR_NORMAL,
+		SERVICE_ACCEPT_STOP
+		)
+	{
+
+	}
+#else
+	DCService(const CString& name) 
+		: ServiceBase(name,
+		name,
+		SERVICE_AUTO_START,
+		SERVICE_ERROR_NORMAL,
+		SERVICE_ACCEPT_STOP
+		)
+	{
+
+	}
+#endif
+	~DCService(void)
+	{
+		
+	}
+#endif
+	bool Run(LPCTSTR param = "");
+
+private:
+
+	void OnStart(DWORD argc, TCHAR* argv[]) override;
+	void OnStop() override;
+	DISABLE_COPY_AND_MOVE(DCService);
+	bool LoadFromconfig();
+
+private:
+	string m_strDBIP				= "";
+	string m_strDBName				= "";
+	string m_strDBPassWord			= "";
+	string m_strDBSID				= "";
+	string m_strDBType				= "";
+	unsigned long m_nDBPort			= 0 ;
+	
+	string m_strServerIP			= "";
+	unsigned long m_nServerPort		= 0 ;
+	string m_strLocalIP				= "";
+
+	CDeviceManage m_deviceManage;
+	IDBObject* m_pDBObject			= nullptr;
+	common::Config*	m_pConf			= nullptr;
+};

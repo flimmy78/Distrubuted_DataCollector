@@ -1,0 +1,378 @@
+
+#include "StdAfx.h"
+
+#ifdef WIN32
+#include "DCService.h"
+#include <DbgHelp.h>
+#include <IO.h>
+#include <string>
+using namespace std;
+
+
+//生产DUMP文件 
+LONG WINAPI ExceptionFilter(LPEXCEPTION_POINTERS lpExceptionInfo)
+{
+	typedef BOOL(WINAPI * MiniDumpWriteDumpT)(
+		HANDLE,
+		DWORD,
+		HANDLE,
+		MINIDUMP_TYPE,
+		PMINIDUMP_EXCEPTION_INFORMATION,
+		PMINIDUMP_USER_STREAM_INFORMATION,
+		PMINIDUMP_CALLBACK_INFORMATION
+		);
+
+	MiniDumpWriteDumpT pfnMiniDumpWriteDump = NULL;
+	HMODULE hDbgHelp = LoadLibrary("DbgHelp.dll");
+	if (hDbgHelp)
+	{
+		pfnMiniDumpWriteDump = (MiniDumpWriteDumpT)GetProcAddress(hDbgHelp, "MiniDumpWriteDump");
+	}
+
+	if (pfnMiniDumpWriteDump)
+	{
+		char szFileName[MAX_PATH] = { 0 };
+		::GetModuleFileName(NULL, szFileName, _MAX_PATH);
+		string str = szFileName;
+		str = str.substr(0, str.length() - 4) + ".dmp";
+
+		HANDLE hFile = ::CreateFile(str.c_str(), GENERIC_WRITE, 0, NULL, 
+			CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+		if (hFile != INVALID_HANDLE_VALUE)
+		{
+			MINIDUMP_EXCEPTION_INFORMATION einfo;
+			einfo.ThreadId = ::GetCurrentThreadId();
+			einfo.ExceptionPointers = lpExceptionInfo;
+			einfo.ClientPointers = FALSE;
+
+			pfnMiniDumpWriteDump(::GetCurrentProcess(), ::GetCurrentProcessId(), 
+				hFile, MiniDumpNormal, &einfo, NULL, NULL);
+			::CloseHandle(hFile);
+		}
+
+		return EXCEPTION_EXECUTE_HANDLER;
+	}
+
+	if (hDbgHelp != NULL)
+	{
+		FreeLibrary(hDbgHelp);
+	}
+
+	return EXCEPTION_EXECUTE_HANDLER;
+}
+#endif
+
+ void DCService::OnStart(DWORD argc, TCHAR* argv[])
+{
+#ifdef WIN32
+	 SetUnhandledExceptionFilter(ExceptionFilter);
+#endif
+
+	 // 初始化日志接口
+
+	 // 初始化数据库模块
+	 if (LoadFromconfig() && CreateDBObject(ORCAL_TYPE, &m_pDBObject))
+	 {
+		 string strError;
+		 if (m_pDBObject->OpenDB(m_strDBSID, m_strDBName, m_strDBPassWord,
+			 m_strDBIP, m_nDBPort, m_strDBTag, strError))
+		 {
+			 // 加载协议处理模块
+			 LoadProtocalFromDLL();
+
+			 // 初始化设备管理模块 && 初始化任务管理模块
+			 if ( m_deviceManage.Init(m_pDBObject, m_strDBTag, m_strLocalIP,
+				 m_strServerIP, m_nServerPort) && 			 
+				 m_taskManage.Init(m_pDBObject, m_strDBTag) )
+			 {
+				 // 创建随抄数据接收线程 
+				 m_commonTaskRecvThread = std::thread(commonTaskRecvThreadFunc, this);
+				 if (m_commonTaskRecvThread.joinable())
+					 m_commonTaskRecvThread.detach();
+
+				 // 创建随抄任务数据发送线程
+				 m_commonTaskSendThread = std::thread(commonTaskSendThreadFunc, this);
+				 if (m_commonTaskSendThread.joinable())
+					 m_commonTaskSendThread.detach();
+
+				 // 创建定抄任务数据，曲线数据线程
+				 m_specialTaskSendThread = std::thread(specialTaskSendThreadFunc, this);
+				 if (m_specialTaskSendThread.joinable())
+					 m_specialTaskSendThread.detach();
+
+				 // 创建定抄任务数据，曲线数据接收线程
+				 m_specialTaskRecvThread = std::thread(specialTaskRecvThreadFunc, this);
+				 if (m_specialTaskRecvThread.joinable())
+					 m_specialTaskRecvThread.detach();
+			 }
+		 }
+	 }
+}
+
+ void DCService::OnStop()
+{
+
+}
+
+ bool DCService::LoadFromconfig()
+ {
+	 if (m_pConf == nullptr)
+	 {
+		 m_pConf = new common::Config("config.ini");
+	 }
+
+	 if (m_pConf->valid())
+	 {
+		 m_strDBIP = m_pConf->getProperty("db_ip");
+		 m_strDBName = m_pConf->getProperty("db_username");
+		 m_strDBPassWord = m_pConf->getProperty("db_password");
+		 m_strDBSID = m_pConf->getProperty("db_sid");
+		 m_strDBType = m_pConf->getProperty("db_type");
+		 m_nDBPort = atoi(m_pConf->getProperty("db_port").c_str());
+
+		 m_strServerIP = m_pConf->getProperty("server_ip");
+		 m_strLocalIP = m_pConf->getProperty("local_ip");
+		 m_nServerPort = atoi(m_pConf->getProperty("server_port").c_str());
+
+		 return true;
+	 }
+	 else
+	 {
+		 return false;
+	 }
+ }
+
+ void DCService::LoadProtocalFromDLL()
+ {
+	 if (m_pDBObject != nullptr)
+	 {
+		 string strErrorInfo = "";
+		 string strDBConTag = "";
+		 string strSQL = "select SN from cfg_protocal";
+		 if (!m_pDBObject->BeginBatchRead(m_strDBTag, strSQL, 1, strDBConTag))
+			 return;
+
+		 vector<string> vecSN;
+		 m_pDBObject->SetReadColData(vecSN, m_strDBTag, strDBConTag);
+		 m_pDBObject->ReBatchRead(m_strDBTag, strDBConTag, strErrorInfo);
+
+		 for (UInt32 i = 0; i < vecSN.size(); i++)
+		 {
+			 char szProtocalDLLName[256] = {0};
+			 int nProtocal = atoi(vecSN[i].c_str());
+			 sprintf_s(szProtocalDLLName, "Protocal_%d", nProtocal);
+#ifdef WIN32
+			 // 动态加载协议号对应的动态库文件（在同级目录下）
+			 // 命名规范为"Protocal_" + 协议号(比如Protocal_3)
+			 HMODULE hDll = LoadLibrary(szProtocalDLLName);
+			 if (hDll != NULL)
+			 {
+				 // 获取创建协议对象的函数地址
+				 PCreateProtocalObject pFunc = (PCreateProtocalObject)\
+					 GetProcAddress(hDll, "CreateProtocalObject");
+
+				 CloseHandle(hDll);
+				 if (pFunc != nullptr)
+				 {
+					 // 通过函数创建协议对象
+					 IProtocalObject* pProtocalOBJ = nullptr;
+					 pFunc(&pProtocalOBJ);
+					 if (pProtocalOBJ != nullptr && pProtocalOBJ->InitObject())
+					 {
+						 // 将协议对象保存起来，以供后续调用
+						 typedef map<int, IProtocalObject*>::value_type mapPair;
+						 m_mapProtocalOBJ.insert(mapPair(nProtocal, pProtocalOBJ));
+						 continue;
+					 }					 
+				 }
+				 // 不合法的协议库则卸载
+				 FreeLibrary(hDll);
+			 }
+#endif
+		 }
+	 }
+ }
+
+ bool DCService::Run(LPCTSTR param)
+{
+	if (_tcscmp(param, _T("console")) == 0) 
+	{
+
+		TCHAR cinCmd[128];
+		bool bStart = false;
+
+		while(1) 
+		{
+			_tprintf(_T("->input \"exit\" quit\r\n"));
+
+			if (!bStart)
+			{
+				OnStart(0, NULL);
+
+				_tprintf(_T("\r\n========================================\r\n"));
+				_tprintf(_T("-> start data collector\r\n"));
+				_tprintf(_T("========================================\r\n"));
+			}
+			bStart = true;
+
+			_tscanf_s(_T("%s"), cinCmd, 128);
+			if (_tcsncmp(cinCmd, _T("?"), 1) == 0) 
+			{
+				_tprintf(_T("========================================\r\n"));
+				_tprintf(_T("\"?\"\t  -show cmd help\r\n"));
+				_tprintf(_T("\"start\"\t  -start data collector\r\n"));
+				_tprintf(_T("\"stop\"\t  -stop data collector\r\n"));
+				_tprintf(_T("\"exit\"\t  -exit data collector\r\n"));
+				_tprintf(_T("========================================\r\n"));
+			}
+			else if (_tcsncmp(cinCmd, _T("start"), 5) == 0) 
+			{
+				if (!bStart) 
+				{
+					OnStart(0, NULL);
+
+					_tprintf(_T("\r\n========================================\r\n"));
+					_tprintf(_T("-> start data collector\r\n"));
+					_tprintf(_T("========================================\r\n"));
+				}
+				bStart = true;
+			}
+			else if (_tcsncmp(cinCmd, _T("stop"), 4) == 0) 
+			{
+				if (bStart)
+				{
+					OnStop();
+
+					_tprintf(_T("\n========================================\n"));
+					_tprintf(_T("-> stop data collector\r\n"));
+					_tprintf(_T("========================================\n"));
+				}
+
+				bStart = false;
+			}
+			else if (_tcsncmp(cinCmd, _T("exit"), 4) == 0) 
+			{
+
+				_tprintf(_T("\r\n========================================\r\n"));
+				_tprintf(_T("-> exit data collector\r\n"));
+				_tprintf(_T("========================================\r\n"));
+
+				break;
+			}
+			else 
+			{
+				_tprintf(_T("invalid cmd\r\n"));
+			}
+		}
+
+		if (bStart)
+			OnStop();
+
+		return true;
+	}
+
+	return ServiceBase::Run();
+}
+
+ void DCService::commonTaskRecvThreadFunc(void * pParam)
+ {
+	 DCService* pDevice = (DCService*)pParam;
+	 pDevice->ProcessCommonTaskRecvThreadFunc();
+ }
+
+ void DCService::commonTaskSendThreadFunc(void * pParam)
+ {
+	 DCService* pDevice = (DCService*)pParam;
+	 pDevice->ProcessCommonTaskSendThreadFunc();
+ }
+
+ void DCService::specialTaskSendThreadFunc(void * pParam)
+ {
+	 DCService* pDevice = (DCService*)pParam;
+	 pDevice->ProcessSpecialTaskSendThreadFunc();
+ }
+
+ void DCService::specialTaskRecvThreadFunc(void * pParam)
+ {
+	 DCService* pDevice = (DCService*)pParam;
+	 pDevice->ProcessSpecialTaskRecvThreadFunc();
+ }
+
+ // 处理线程函数
+ void DCService::ProcessCommonTaskRecvThreadFunc()
+ {
+	 while (!m_bQuitCommonTaskRecvThread)
+	 {
+		 this_thread::sleep_for(chrono::microseconds(1));
+	 }
+ }
+
+ // 随抄处理函数
+ void DCService::ProcessCommonTaskSendThreadFunc()
+ {
+	 while (!m_bQuitCommonTaskSendThread)
+	 {
+		 // 获取随抄任务
+		 vector<TASKDATA> vecTaskData;
+		 m_taskManage.GetTaskContext(COMMON_TASK, vecTaskData);
+
+		 for (int i = 0; i < vecTaskData.size(); i++)
+		 {
+			 unsigned char cProtocalType = vecTaskData[i].taskPacket.cProtocalType;
+			 if (m_mapProtocalOBJ.find(cProtocalType) != m_mapProtocalOBJ.end())
+			 {
+				 // 如果协议处理存在，则开始编码、发送的工作
+			 }
+		 }
+		 this_thread::sleep_for(chrono::microseconds(100));
+	 }
+ }
+
+ void DCService::ProcessSpecialTaskSendThreadFunc()
+ {
+	 while (!m_bQuitSpecialTaskSendThread)
+	 {
+		 // 判断是否符合产生日冻结定抄任务的条件
+		 if (IsGenerateDayFrozenTask())
+		 {
+			 m_taskManage.GenerateTask(DAY_FROZEN_TASK);
+		 }
+
+		 // 判断是否符合产生月冻结定抄任务的条件
+		 if (IsGenerateMonthFrozenTask())
+		 {
+			 m_taskManage.GenerateTask(MONTH_FROZEN_TASK);
+		 }
+
+		 // 判断是否符合产生曲线定抄任务的条件
+		 if (IsGenerateCurveFrozenTask())
+		 {
+			 m_taskManage.GenerateTask(CURVE_TASK);
+		 }
+
+		 this_thread::sleep_for(chrono::microseconds(100));
+	 }
+ }
+
+void DCService::ProcessSpecialTaskRecvThreadFunc()
+{
+	while (!m_bQuitSpecialTaskRecvThread)
+	{
+		this_thread::sleep_for(chrono::microseconds(1));
+	}
+}
+
+bool DCService::IsGenerateDayFrozenTask()
+{
+	return true;
+}
+
+bool DCService::IsGenerateMonthFrozenTask()
+{
+	return false;
+}
+
+bool DCService::IsGenerateCurveFrozenTask()
+{
+	return false;
+}

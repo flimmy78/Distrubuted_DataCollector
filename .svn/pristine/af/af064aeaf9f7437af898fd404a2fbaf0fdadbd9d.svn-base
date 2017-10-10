@@ -1,0 +1,20 @@
+#include "stdafx.h"
+#include "../include/common.h"
+
+
+// 返回自系统开机以来的毫秒数（tick）  
+unsigned long WSCOMMON::GetTickCountEX(void)
+{
+	unsigned long currentTime;
+#ifdef WIN32
+	currentTime = GetTickCount();
+#endif
+#ifdef LINUX
+	struct timespec ts;
+
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+
+	return (ts.tv_sec * 1000 + ts.tv_nsec / 1000000);
+#endif
+	return currentTime;
+}

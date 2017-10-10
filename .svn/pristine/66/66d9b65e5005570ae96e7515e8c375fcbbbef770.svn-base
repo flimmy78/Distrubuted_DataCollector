@@ -1,0 +1,7 @@
+#include "stdafx.h"
+#include "ProtocalInterFace.h"
+
+__PROTOCAL_INTERFACE_API bool WSProtocalInterFace::CreateProtocalObject(WSProtocalInterFace::Int16 type, IProtocalObject ** pProtocalObject)
+{
+	return __PROTOCAL_INTERFACE_API bool();
+}

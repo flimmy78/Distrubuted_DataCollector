@@ -1,0 +1,48 @@
+#pragma once
+
+#ifdef WIN32
+#include "service_base.h"
+class DCService : public ServiceBase
+{
+public:
+
+#ifdef _DEBUG
+	DCService(const CString& name) 
+		: ServiceBase(name,
+		name,
+		SERVICE_DEMAND_START,
+		SERVICE_ERROR_NORMAL,
+		SERVICE_ACCEPT_STOP
+		)
+	{
+
+	}
+#else
+	DCService(const CString& name) 
+		: ServiceBase(name,
+		name,
+		SERVICE_AUTO_START,
+		SERVICE_ERROR_NORMAL,
+		SERVICE_ACCEPT_STOP
+		)
+	{
+
+	}
+#endif
+	~DCService(void)
+	{
+		
+	}
+
+	bool Run(LPCTSTR param = "");
+
+private:
+
+	void OnStart(DWORD argc, TCHAR* argv[]) override;
+	void OnStop() override;
+	DISABLE_COPY_AND_MOVE(DCService);
+
+
+private:
+};
+#endif // WIN32
